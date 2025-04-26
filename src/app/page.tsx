@@ -25,17 +25,23 @@ export default function LinguaLiveApp() {
   // Check for TTS support on component mount (client-side only)
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      // Check for voices also, as API might exist but have no voices
        const checkVoices = () => {
-            if (window.speechSynthesis.getVoices().length > 0) {
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                console.log("TTS Voices found:", voices.map(v => `${v.name} (${v.lang})`));
                 setIsTTSSupported(true);
+                 // Remove listener once voices are confirmed
+                 window.speechSynthesis.onvoiceschanged = null;
             } else {
-                 console.warn("Speech Synthesis API exists, but no voices found initially.");
-                 // Try again if voices load later
+                 console.warn("Speech Synthesis API exists, but no voices found initially. Waiting for voiceschanged event.");
+                 // Keep listener active if voices not found yet
                  window.speechSynthesis.onvoiceschanged = () => {
-                     if(window.speechSynthesis.getVoices().length > 0) {
-                         setIsTTSSupported(true);
-                         window.speechSynthesis.onvoiceschanged = null; // Remove listener once voices are confirmed
+                     console.log("voiceschanged event fired.");
+                     const updatedVoices = window.speechSynthesis.getVoices();
+                     if(updatedVoices.length > 0) {
+                          console.log("TTS Voices found after event:", updatedVoices.map(v => `${v.name} (${v.lang})`));
+                          setIsTTSSupported(true);
+                          window.speechSynthesis.onvoiceschanged = null; // Remove listener
                      } else {
                          console.warn("Speech Synthesis API exists, but still no voices found after event.");
                          setIsTTSSupported(false); // Explicitly set to false if voices never load
@@ -43,12 +49,9 @@ export default function LinguaLiveApp() {
                  };
             }
        };
-       // Voices might not be loaded immediately
-       if (window.speechSynthesis.getVoices().length > 0) {
-            checkVoices();
-       } else {
-           window.speechSynthesis.onvoiceschanged = checkVoices;
-       }
+
+       // Trigger the check. Voices might be loaded sync or async.
+       checkVoices();
 
     } else if (typeof window !== 'undefined') {
         console.warn("Speech Synthesis API not supported in this browser.");
@@ -56,11 +59,19 @@ export default function LinguaLiveApp() {
     }
   }, []); // Empty dependency array ensures this runs only once on mount
 
+
   const handleTranslateAndSpeak = useCallback(async (text: string, sourceUser: 'user1' | 'user2', isVoiceInput: boolean = false, targetLangForTTS?: LanguageCode) => {
     const sourceLanguage = sourceUser === 'user1' ? user1Lang : user2Lang;
     const targetLanguage = sourceUser === 'user1' ? user2Lang : user1Lang;
+    const effectiveTargetLangForTTS = targetLangForTTS || (sourceUser === 'user1' ? user2Lang : user1Lang); // Use provided or derived target
 
-    if (!text || !sourceLanguage || !targetLanguage) return;
+    console.log(`Translating from ${sourceLanguage} to ${targetLanguage}. Voice input: ${isVoiceInput}. TTS Target: ${effectiveTargetLangForTTS}`);
+
+
+    if (!text || !sourceLanguage || !targetLanguage) {
+         console.warn("Translation skipped: Missing text, source, or target language.");
+         return;
+    }
 
     // Set loading state
     if (sourceUser === 'user1') setIsUser1Translating(true);
@@ -78,8 +89,9 @@ export default function LinguaLiveApp() {
      };
      setConversation((prev) => [...prev, originalMessage]);
 
-    // Skip translation and TTS if languages are the same
+    // --- Skip translation and TTS if languages are the same ---
     if (sourceLanguage === targetLanguage) {
+        console.log("Translation skipped: Source and target languages are the same.");
         toast({
             title: "Translation Skipped",
             description: "Source and target languages are the same.",
@@ -97,15 +109,18 @@ export default function LinguaLiveApp() {
         return;
     }
 
-    // Perform Translation
+    // --- Perform Translation ---
     const request: TranslationRequest = {
       text,
       sourceLanguage,
       targetLanguage,
     };
 
+    let translationResultText = "Error: Translation failed."; // Default error text
+
     try {
       const result: TranslationResult = await translateText(request);
+      translationResultText = result.translatedText; // Store result text
 
       // Update message with translation
       setConversation((prev) =>
@@ -116,55 +131,66 @@ export default function LinguaLiveApp() {
         )
       );
 
-      // Handle translation errors specifically
+      // Handle specific translation errors (e.g., unavailable message from service)
       if (result.translatedText.startsWith('Translation currently unavailable')) {
+           console.error("Translation Service Error:", result.translatedText);
            toast({
                 variant: "destructive",
                 title: "Translation Error",
                 description: result.translatedText,
            });
-      } else {
-            // Speak the translated text if it was voice input and TTS is supported
-            if (isVoiceInput && isTTSSupported && targetLangForTTS) {
-                speakText(result.translatedText, targetLangForTTS, (errorMsg) => { // Use targetLangForTTS
+      } else if (isVoiceInput) { // Only attempt TTS if it was voice input
+            if (isTTSSupported && effectiveTargetLangForTTS) {
+                 console.log(`Attempting to speak: "${result.translatedText}" in ${effectiveTargetLangForTTS}`);
+                speakText(result.translatedText, effectiveTargetLangForTTS, (errorMsg) => {
+                    console.error("TTS Error Callback:", errorMsg);
                      toast({
                         variant: "destructive",
                         title: "Speech Error",
                         description: errorMsg,
                      });
                 });
-            } else if (isVoiceInput && !isTTSSupported) {
+            } else if (!isTTSSupported) {
+                 console.warn("TTS not supported, skipping speech.");
                  toast({
                     title: "Speech Unavailable",
-                    description: "Could not speak the translation as text-to-speech is not supported.",
+                    description: "Could not speak the translation as text-to-speech is not supported or no voices found.",
+                 });
+            } else if (!effectiveTargetLangForTTS) {
+                 console.warn("Target language for TTS is missing, skipping speech.");
+                 toast({
+                     title: "Speech Skipped",
+                     description: "Target language for speech synthesis is missing.",
                  });
             }
-      }
+       }
     } catch (error) {
-      console.error('Translation or Speech failed:', error);
-      // Update the message with an error state
+      console.error('Translation or Speech async processing failed:', error);
+      // Update the message with the default error state
        setConversation((prev) =>
         prev.map(msg =>
           msg.id === originalMessage.id
-            ? { ...msg, translatedText: "Error: Translation failed." }
+            ? { ...msg, translatedText: translationResultText } // Use the default error text
             : msg
         )
       );
        toast({
           variant: "destructive",
           title: "Error",
-          description: "An unexpected error occurred.",
+          description: "An unexpected error occurred during processing.",
       });
     } finally {
        // Reset loading state
        if (sourceUser === 'user1') setIsUser1Translating(false);
        else setIsUser2Translating(false);
+       console.log("Translation/Speaking process finished for user:", sourceUser);
     }
 
   }, [user1Lang, user2Lang, toast, isTTSSupported]); // Added isTTSSupported
 
   // Updated handler to receive targetLangForTTS
   const handleUserInput = (text: string, user: 'user1' | 'user2', isVoiceInput: boolean = false, targetLangForTTS?: LanguageCode) => {
+      console.log(`User Input Received - User: ${user}, Text: "${text}", Voice Input: ${isVoiceInput}, TTS Target: ${targetLangForTTS}`);
     handleTranslateAndSpeak(text, user, isVoiceInput, targetLangForTTS); // Pass targetLangForTTS
   };
 
@@ -215,7 +241,7 @@ export default function LinguaLiveApp() {
            language={user1Lang}
            targetLanguage={user2Lang} // Pass the target language for TTS
            onSend={handleUserInput}
-           isSpeaking={isUser1Translating} // Pass translating state
+           isTranslating={isUser1Translating} // Pass translating state correctly
            placeholder={`Speak or type in ${languages.find(l => l.code === user1Lang)?.name || 'your language'}...`}
            aria-label="Input area for User 1"
          />
@@ -224,7 +250,7 @@ export default function LinguaLiveApp() {
            language={user2Lang}
            targetLanguage={user1Lang} // Pass the target language for TTS
            onSend={handleUserInput}
-           isSpeaking={isUser2Translating} // Pass translating state
+           isTranslating={isUser2Translating} // Pass translating state correctly
            placeholder={`Speak or type in ${languages.find(l => l.code === user2Lang)?.name || 'your language'}...`}
            aria-label="Input area for User 2"
          />
