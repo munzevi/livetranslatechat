@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { translateText, type TranslationRequest, type TranslationResult } from '@/services/translation';
 import type { Message } from '@/components/lingualive/TranslationBubble';
 import { languages, type LanguageCode, getLanguageName } from '@/lib/languages';
-import { ArrowRightLeft, Settings, User, UserRound } from 'lucide-react';
+import { ArrowRightLeft, Settings, User, UserRound, Keyboard, Mic } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { speakText, type Gender } from '@/lib/tts';
 import { Logo } from '@/components/lingualive/Logo';
+import { useIsMobile } from '@/hooks/use-mobile'; // Import the hook
 
 export default function LinguaLiveApp() {
   const [user1Lang, setUser1Lang] = useState<LanguageCode>('en');
@@ -25,10 +26,17 @@ export default function LinguaLiveApp() {
   const { toast } = useToast();
   const [isTTSSupported, setIsTTSSupported] = useState<boolean>(false);
   const lastSpokenMessageId = useRef<string | null>(null);
+  const isMobile = useIsMobile(); // Use the hook
+  const [showTextInput, setShowTextInput] = useState<boolean>(!isMobile); // Default to hidden on mobile
 
   // State for managing settings sheets
   const [isUser1SettingsOpen, setIsUser1SettingsOpen] = useState<boolean>(false);
   const [isUser2SettingsOpen, setIsUser2SettingsOpen] = useState<boolean>(false);
+
+   // Update showTextInput state when isMobile changes (e.g., on resize)
+   useEffect(() => {
+    setShowTextInput(!isMobile);
+   }, [isMobile]);
 
 
   useEffect(() => {
@@ -155,7 +163,9 @@ export default function LinguaLiveApp() {
 
     // --- Step 2: Handle Speaking ---
     // Speak only if input was voice AND translation was successful (or not needed)
-    if (isVoiceInput && translationSuccess) {
+     // *** Updated logic: Speak if translation was successful (or not needed), regardless of input type for now
+     // *** If you ONLY want voice input to trigger speech, revert to: if (isVoiceInput && translationSuccess)
+    if (translationSuccess) {
          if (isTTSSupported && lastSpokenMessageId.current !== messageId) {
              lastSpokenMessageId.current = messageId; // Mark this message as being spoken
              const textToSpeak = translationResultText; // Speak the (potentially translated) text
@@ -175,10 +185,8 @@ export default function LinguaLiveApp() {
          } else if (lastSpokenMessageId.current === messageId) {
              console.log(`Speech already initiated for ID ${messageId}, skipping duplicate call.`);
          }
-    } else if (isVoiceInput && !translationSuccess) {
+    } else if (!translationSuccess) {
         console.log("Skipping speech due to translation failure.");
-    } else if (!isVoiceInput) {
-        console.log("Skipping speech as input was not voice.");
     }
 
 
@@ -194,7 +202,6 @@ export default function LinguaLiveApp() {
           console.warn("Empty input received, ignoring.");
           return;
       }
-      // Don't reset lastSpokenMessageId here, let handleTranslateAndSpeak manage it
       handleTranslateAndSpeak(text, user, isVoiceInput);
   },[handleTranslateAndSpeak]);
 
@@ -228,25 +235,29 @@ export default function LinguaLiveApp() {
     }
   };
 
+  const toggleTextInputVisibility = () => {
+    setShowTextInput(prev => !prev);
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-secondary p-4 md:p-6 lg:p-8 overflow-hidden font-sans">
-       <header className="flex items-center justify-between mb-4 p-2 flex-shrink-0">
+    <div className="flex flex-col h-screen bg-secondary p-2 sm:p-4 md:p-6 lg:p-8 overflow-hidden font-sans">
+       <header className="flex items-center justify-between mb-2 sm:mb-4 p-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Logo />
-            <h1 className="text-xl font-semibold text-foreground">TranslateChat</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground">TranslateChat</h1>
           </div>
        </header>
 
-      {/* User Controls Area */}
-      <div className="flex flex-col md:flex-row items-center justify-around gap-4 mb-4 flex-shrink-0 px-2">
+      {/* User Controls Area - Adjusted for mobile */}
+      <div className="flex flex-col sm:flex-row items-center justify-around gap-2 sm:gap-4 mb-2 sm:mb-4 flex-shrink-0 px-2">
 
         {/* User 1 Area */}
-        <div className="flex items-center gap-2 flex-1 justify-center">
-           <User className="w-5 h-5 text-muted-foreground"/>
-           <span className="font-medium text-foreground mr-1">User 1:</span>
-           <span className="text-sm text-primary">{getLanguageName(user1Lang)}</span>
-           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsUser1SettingsOpen(true)}>
-             <Settings className="w-4 h-4" />
+        <div className="flex items-center gap-1 sm:gap-2 flex-1 justify-center">
+           <User className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground"/>
+           <span className="hidden md:inline font-medium text-foreground mr-1">User 1:</span>
+           <span className="text-xs sm:text-sm text-primary">{getLanguageName(user1Lang)}</span>
+           <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7" onClick={() => setIsUser1SettingsOpen(true)}>
+             <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
              <span className="sr-only">User 1 Settings</span>
            </Button>
         </div>
@@ -256,19 +267,19 @@ export default function LinguaLiveApp() {
             variant="outline"
             size="icon"
             onClick={swapLanguagesAndGenders}
-            className="flex-shrink-0 rounded-full border shadow-sm"
+            className="flex-shrink-0 rounded-full border shadow-sm w-8 h-8 sm:w-10 sm:h-10"
             aria-label="Swap languages and voices"
             >
-            <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
+            <ArrowRightLeft className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
         </Button>
 
         {/* User 2 Area */}
-        <div className="flex items-center gap-2 flex-1 justify-center">
-           <UserRound className="w-5 h-5 text-muted-foreground"/>
-           <span className="font-medium text-foreground mr-1">User 2:</span>
-           <span className="text-sm text-primary">{getLanguageName(user2Lang)}</span>
-           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsUser2SettingsOpen(true)}>
-             <Settings className="w-4 h-4" />
+        <div className="flex items-center gap-1 sm:gap-2 flex-1 justify-center">
+           <UserRound className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground"/>
+           <span className="hidden md:inline font-medium text-foreground mr-1">User 2:</span>
+           <span className="text-xs sm:text-sm text-primary">{getLanguageName(user2Lang)}</span>
+           <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7" onClick={() => setIsUser2SettingsOpen(true)}>
+             <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="sr-only">User 2 Settings</span>
            </Button>
         </div>
@@ -276,31 +287,48 @@ export default function LinguaLiveApp() {
 
 
       {/* Conversation Area */}
-      <Card className="flex-grow min-h-0 overflow-hidden border shadow-sm bg-background">
+      <Card className="flex-grow min-h-0 overflow-hidden border shadow-sm bg-background rounded-lg">
            <ConversationView conversation={conversation} />
       </Card>
 
+       {/* Mobile: Toggle Text Input Button */}
+        {isMobile && (
+            <div className="mt-2 flex justify-center flex-shrink-0">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleTextInputVisibility}
+                    className="shadow"
+                >
+                    {showTextInput ? <Mic className="mr-2 h-4 w-4" /> : <Keyboard className="mr-2 h-4 w-4" />}
+                    {showTextInput ? 'Use Voice Only' : 'Type Message'}
+                </Button>
+            </div>
+        )}
+
       {/* Input Areas Container */}
-       <div className="flex flex-col md:flex-row gap-4 mt-4 flex-shrink-0">
-         <UserInputArea
-           user="user1"
-           language={user1Lang}
-           onSend={handleUserInput}
-           isTranslating={isUser1Translating}
-           placeholder={`Speak or type in ${getLanguageName(user1Lang)}...`}
-           aria-label="Input area for User 1"
-           className="bg-background rounded-lg shadow flex-1"
-         />
-         <UserInputArea
-           user="user2"
-           language={user2Lang}
-           onSend={handleUserInput}
-           isTranslating={isUser2Translating}
-           placeholder={`Speak or type in ${getLanguageName(user2Lang)}...`}
-           aria-label="Input area for User 2"
-           className="bg-background rounded-lg shadow flex-1"
-         />
-      </div>
+       <div className={`flex flex-col md:flex-row gap-2 sm:gap-4 mt-2 sm:mt-4 flex-shrink-0 ${!showTextInput && 'md:items-center md:justify-center'}`}>
+           <UserInputArea
+               user="user1"
+               language={user1Lang}
+               onSend={handleUserInput}
+               isTranslating={isUser1Translating}
+               placeholder={`Speak or type in ${getLanguageName(user1Lang)}...`}
+               aria-label="Input area for User 1"
+               className={`bg-card rounded-lg shadow flex-1 ${!showTextInput && 'input-area-collapsed'}`} // Add class when collapsed
+               showTextInput={showTextInput} // Pass state to component
+            />
+            <UserInputArea
+               user="user2"
+               language={user2Lang}
+               onSend={handleUserInput}
+               isTranslating={isUser2Translating}
+               placeholder={`Speak or type in ${getLanguageName(user2Lang)}...`}
+               aria-label="Input area for User 2"
+               className={`bg-card rounded-lg shadow flex-1 ${!showTextInput && 'input-area-collapsed'}`} // Add class when collapsed
+               showTextInput={showTextInput} // Pass state to component
+            />
+       </div>
 
        {/* User Settings Sheets */}
        <UserSettingsSheet

@@ -111,3 +111,10 @@ body {
     background: hsl(var(--muted-foreground) / 0.7);
   }
 }
+
+/* Custom class for collapsed input area on mobile */
+@layer components {
+  .input-area-collapsed {
+    @apply md:flex-none md:w-auto; /* Allow shrinking on larger screens when collapsed */
+  }
+}
