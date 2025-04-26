@@ -1,7 +1,7 @@
 {
-  "name": "TranslateChat",
-  "short_name": "TranslateChat",
-  "description": "Real-time voice translation application",
+  "name": "Nicole",
+  "short_name": "Nicole",
+  "description": "Real-time voice translation with Nicole",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F0F0F0",

@@ -15,7 +15,7 @@ import { speakText, type Gender } from '@/lib/tts';
 import { Logo } from '@/components/lingualive/Logo';
 import { useIsMobile } from '@/hooks/use-mobile'; // Import the hook
 
-export default function LinguaLiveApp() {
+export default function NicoleApp() { // Updated component name for clarity
   const [user1Lang, setUser1Lang] = useState<LanguageCode>('en');
   const [user2Lang, setUser2Lang] = useState<LanguageCode>('tr');
   const [user1Gender, setUser1Gender] = useState<Gender>('female');
@@ -27,12 +27,16 @@ export default function LinguaLiveApp() {
   const [isTTSSupported, setIsTTSSupported] = useState<boolean>(false);
   const lastSpokenMessageId = useRef<string | null>(null);
   const isMobile = useIsMobile(); // Use the hook
-  // Start with text input visible by default, mobile logic handled within UserInputArea now
-  const [showTextInput, setShowTextInput] = useState<boolean>(true);
+  const [showTextInput, setShowTextInput] = useState<boolean>(!isMobile); // Default text input based on device
 
   // State for managing settings sheets
   const [isUser1SettingsOpen, setIsUser1SettingsOpen] = useState<boolean>(false);
   const [isUser2SettingsOpen, setIsUser2SettingsOpen] = useState<boolean>(false);
+
+  // Update text input visibility when isMobile changes
+  useEffect(() => {
+      setShowTextInput(!isMobile);
+  }, [isMobile]);
 
   useEffect(() => {
     // Check for TTS support after component mounts on client-side
@@ -247,7 +251,7 @@ export default function LinguaLiveApp() {
        <header className="flex items-center justify-between mb-2 sm:mb-4 p-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Logo />
-            <h1 className="text-lg sm:text-xl font-semibold text-foreground">TranslateChat</h1>
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground">Nicole</h1> {/* Updated app name */}
           </div>
        </header>
 

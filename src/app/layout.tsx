@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'TranslateChat',
-  description: 'Real-time voice translation',
+  title: 'Nicole', // Updated title
+  description: 'Real-time voice translation with Nicole', // Updated description
   manifest: '/manifest.json', // Link the manifest file
   icons: { // Optional: Define icons for PWA/bookmarks
     icon: '/icon-192x192.png',
