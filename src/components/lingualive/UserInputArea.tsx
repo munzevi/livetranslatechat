@@ -2,11 +2,12 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Send, Bot, Languages, AlertCircle } from 'lucide-react';
+import { Mic, Send, Bot, Languages, AlertCircle, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { LanguageCode } from '@/lib/languages';
 import { Textarea } from '@/components/ui/textarea';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface UserInputAreaProps extends React.AriaAttributes {
   user: 'user1' | 'user2';
@@ -15,7 +16,8 @@ interface UserInputAreaProps extends React.AriaAttributes {
   isTranslating: boolean;
   placeholder?: string;
   className?: string;
-  showTextInput: boolean; // New prop to control text input visibility
+  showTextInput: boolean; // Receive state from parent
+  onToggleTextInput?: () => void; // Optional prop for mobile toggle button
 }
 
 export function UserInputArea({
@@ -25,7 +27,8 @@ export function UserInputArea({
   isTranslating,
   placeholder,
   className,
-  showTextInput, // Use the new prop
+  showTextInput,
+  onToggleTextInput,
   ...ariaProps
 }: UserInputAreaProps) {
   const [inputText, setInputText] = useState('');
@@ -33,12 +36,13 @@ export function UserInputArea({
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { toast } = useToast();
   const finalTranscriptRef = useRef(''); // Ref to store final transcript
+  const isMobile = useIsMobile();
 
   const isClient = typeof window !== 'undefined';
   const SpeechRecognition = isClient ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
   const recognitionSupported = !!SpeechRecognition;
 
-   // Define stopListening using useCallback, referencing isListening
+  // Define stopListening using useCallback, referencing isListening
    const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
         try {
@@ -226,70 +230,78 @@ export function UserInputArea({
 
   return (
     <div className={cn(
-        "flex flex-col gap-2 p-2 sm:p-3 border rounded-lg bg-card shadow-sm w-full relative",
-        !showTextInput && "items-center justify-center min-h-[100px] md:min-h-0", // Center mic when text is hidden
+        "flex flex-col items-center gap-2 p-2 sm:p-3 border rounded-lg bg-card shadow-sm w-full relative",
+        // Adjust overall layout based on text input visibility
         className
-        )}>
+    )}>
 
-        {/* Main Row: Mic button and Textarea/Send */}
-        <div className={cn(
-            "flex items-end gap-2 w-full",
-            !showTextInput && "justify-center" // Center mic button when text is hidden
-        )}>
-            {/* Mic Button - Larger and Centered */}
-            <Button
-                variant={isListening ? "destructive" : "ghost"} // Change variant when listening
-                size="lg" // Larger button
-                onClick={toggleListening}
-                disabled={isTranslating || !recognitionSupported}
-                className={cn(
-                    "p-3 rounded-full text-primary hover:bg-primary/10 aspect-square h-16 w-16 sm:h-20 sm:w-20", // Larger, rounded, aspect ratio
-                    isListening && "bg-red-500 text-white hover:bg-red-600 animate-pulse", // Prominent listening state
-                    (isTranslating || !recognitionSupported) && "opacity-50 cursor-not-allowed"
-                )}
-                aria-label={isListening ? "Stop listening" : "Start voice input"}
-            >
-                <Mic className="w-8 h-8 sm:w-10 sm:h-10" /> {/* Larger Icon */}
-            </Button>
-
-             {/* Text Input Area & Send Button - Conditionally Rendered */}
-             {showTextInput && (
-                <div className="flex-grow flex flex-col gap-1">
-                    <Textarea
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={placeholder || 'Or type here...'}
-                        className="flex-1 resize-none bg-input text-sm p-2 min-h-[40px] sm:min-h-[60px]" // Adjusted styling, ensure min-height
-                        rows={2} // Adjust rows as needed
-                        disabled={isTranslating || isListening}
-                        aria-label={placeholder || 'Type your message'}
-                        {...ariaProps}
-                    />
-                    {inputText && ( // Only show Send button if there is text
-                        <Button
-                            onClick={handleSendText}
-                            disabled={!inputText.trim() || isTranslating || isListening}
-                            size="sm"
-                            aria-label="Send typed message"
-                            className="px-3 py-1 self-end mt-1" // Align to the right, add margin
-                        >
-                            {isTranslating && inputText ? (
-                            <Bot className="w-4 h-4 animate-spin mr-1" />
-                            ) : (
-                            <Send className="w-4 h-4 mr-1" />
-                            )}
-                            Send
-                        </Button>
-                    )}
-                </div>
-             )}
-        </div>
+        {/* Mic Button - Always visible, larger */}
+        <Button
+            variant={isListening ? "destructive" : "ghost"} // Change variant when listening
+            size="lg" // Larger button
+            onClick={toggleListening}
+            disabled={isTranslating || !recognitionSupported}
+            className={cn(
+                "p-3 rounded-full text-primary hover:bg-primary/10 aspect-square h-16 w-16 sm:h-20 sm:w-20", // Larger, rounded, aspect ratio
+                isListening && "bg-red-500 text-white hover:bg-red-600 animate-pulse", // Prominent listening state
+                (isTranslating || !recognitionSupported) && "opacity-50 cursor-not-allowed"
+            )}
+            aria-label={isListening ? "Stop listening" : "Start voice input"}
+        >
+            <Mic className="w-8 h-8 sm:w-10 sm:h-10" /> {/* Larger Icon */}
+        </Button>
 
          {/* Helper Text for Voice Input */}
-         <p className="text-xs text-muted-foreground text-center mt-1 px-2">
+         <p className="text-xs text-muted-foreground text-center -mt-1 mb-1 px-2">
             {isListening ? "Listening..." : recognitionSupported ? "Tap the mic to speak" : "Voice input not supported"}
-          </p>
+         </p>
+
+         {/* Mobile: Toggle Text Input Button */}
+         {isMobile && onToggleTextInput && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onToggleTextInput}
+                    className="shadow text-xs h-7 px-2 mb-2" // Smaller button, adjusted margin
+                >
+                    {showTextInput ? <Mic className="mr-1 h-3 w-3" /> : <Keyboard className="mr-1 h-3 w-3" />}
+                    {showTextInput ? 'Use Voice Only' : 'Type Message'}
+                </Button>
+         )}
+
+         {/* Text Input Area & Send Button - Conditionally Rendered */}
+         {showTextInput && (
+            <div className="w-full flex flex-col gap-1 items-stretch">
+                <Textarea
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={placeholder || 'Or type here...'}
+                    className="flex-1 resize-none bg-input text-sm p-2 min-h-[40px] sm:min-h-[50px]" // Adjusted styling, ensure min-height
+                    rows={2} // Adjust rows as needed
+                    disabled={isTranslating || isListening}
+                    aria-label={placeholder || 'Type your message'}
+                    {...ariaProps}
+                />
+                {/* Only show Send button if there is text */}
+                {inputText && (
+                    <Button
+                        onClick={handleSendText}
+                        disabled={!inputText.trim() || isTranslating || isListening}
+                        size="sm"
+                        aria-label="Send typed message"
+                        className="px-3 py-1 self-end mt-1 text-xs h-7" // Align to the right, add margin, smaller button
+                    >
+                        {isTranslating && inputText ? (
+                        <Bot className="w-3 h-3 animate-spin mr-1" />
+                        ) : (
+                        <Send className="w-3 h-3 mr-1" />
+                        )}
+                        Send
+                    </Button>
+                )}
+            </div>
+         )}
 
         {/* Optional: Indication for unsupported browser */}
         {!recognitionSupported && isClient && !showTextInput && ( // Only show if voice-only and not supported

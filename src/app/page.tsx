@@ -27,17 +27,12 @@ export default function LinguaLiveApp() {
   const [isTTSSupported, setIsTTSSupported] = useState<boolean>(false);
   const lastSpokenMessageId = useRef<string | null>(null);
   const isMobile = useIsMobile(); // Use the hook
-  const [showTextInput, setShowTextInput] = useState<boolean>(!isMobile); // Default to hidden on mobile
+  // Start with text input visible by default, mobile logic handled within UserInputArea now
+  const [showTextInput, setShowTextInput] = useState<boolean>(true);
 
   // State for managing settings sheets
   const [isUser1SettingsOpen, setIsUser1SettingsOpen] = useState<boolean>(false);
   const [isUser2SettingsOpen, setIsUser2SettingsOpen] = useState<boolean>(false);
-
-   // Update showTextInput state when isMobile changes (e.g., on resize)
-   useEffect(() => {
-    setShowTextInput(!isMobile);
-   }, [isMobile]);
-
 
   useEffect(() => {
     // Check for TTS support after component mounts on client-side
@@ -48,7 +43,9 @@ export default function LinguaLiveApp() {
             if (voices.length > 0) {
                 setIsTTSSupported(true);
                 // Once voices are loaded, we don't need the listener anymore
-                window.speechSynthesis.onvoiceschanged = null;
+                if (window.speechSynthesis) {
+                   window.speechSynthesis.onvoiceschanged = null;
+                }
             } else {
                 // If voices are not immediately available, set a listener
                 const handleVoicesChanged = () => {
@@ -59,9 +56,13 @@ export default function LinguaLiveApp() {
                         setIsTTSSupported(false); // Still no voices
                     }
                     // Remove listener after it runs
-                    window.speechSynthesis.onvoiceschanged = null;
+                    if (window.speechSynthesis) {
+                        window.speechSynthesis.onvoiceschanged = null;
+                    }
                 };
-                window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
+                 if (window.speechSynthesis) {
+                     window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
+                 }
             }
         };
 
@@ -70,7 +71,9 @@ export default function LinguaLiveApp() {
              checkVoices();
         } else {
             // If not loaded, rely on the onvoiceschanged event (set inside checkVoices)
-            window.speechSynthesis.onvoiceschanged = checkVoices;
+             if (window.speechSynthesis) {
+                 window.speechSynthesis.onvoiceschanged = checkVoices;
+             }
         }
 
     } else if (typeof window !== 'undefined') {
@@ -235,9 +238,9 @@ export default function LinguaLiveApp() {
     }
   };
 
-  const toggleTextInputVisibility = () => {
+  const toggleTextInputVisibility = useCallback(() => {
     setShowTextInput(prev => !prev);
-  }
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-secondary p-2 sm:p-4 md:p-6 lg:p-8 overflow-hidden font-sans">
@@ -248,8 +251,8 @@ export default function LinguaLiveApp() {
           </div>
        </header>
 
-      {/* User Controls Area - Adjusted for mobile */}
-      <div className="flex flex-col sm:flex-row items-center justify-around gap-2 sm:gap-4 mb-2 sm:mb-4 flex-shrink-0 px-2">
+      {/* User Controls Area - Always flex-row */}
+      <div className="flex flex-row items-center justify-around gap-2 sm:gap-4 mb-2 sm:mb-4 flex-shrink-0 px-2">
 
         {/* User 1 Area */}
         <div className="flex items-center gap-1 sm:gap-2 flex-1 justify-center">
@@ -291,21 +294,6 @@ export default function LinguaLiveApp() {
            <ConversationView conversation={conversation} />
       </Card>
 
-       {/* Mobile: Toggle Text Input Button */}
-        {isMobile && (
-            <div className="mt-2 flex justify-center flex-shrink-0">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleTextInputVisibility}
-                    className="shadow"
-                >
-                    {showTextInput ? <Mic className="mr-2 h-4 w-4" /> : <Keyboard className="mr-2 h-4 w-4" />}
-                    {showTextInput ? 'Use Voice Only' : 'Type Message'}
-                </Button>
-            </div>
-        )}
-
       {/* Input Areas Container - Always use flex-row */}
        <div className={`flex flex-row gap-2 sm:gap-4 mt-2 sm:mt-4 flex-shrink-0`}>
            <UserInputArea
@@ -315,8 +303,9 @@ export default function LinguaLiveApp() {
                isTranslating={isUser1Translating}
                placeholder={`Speak or type in ${getLanguageName(user1Lang)}...`}
                aria-label="Input area for User 1"
-               className={`bg-card rounded-lg shadow flex-1`} // Remove input-area-collapsed class
-               showTextInput={showTextInput} // Pass state to component
+               className={`bg-card rounded-lg shadow flex-1`}
+               showTextInput={showTextInput}
+               onToggleTextInput={isMobile ? toggleTextInputVisibility : undefined} // Pass toggle function only on mobile
             />
             <UserInputArea
                user="user2"
@@ -325,8 +314,9 @@ export default function LinguaLiveApp() {
                isTranslating={isUser2Translating}
                placeholder={`Speak or type in ${getLanguageName(user2Lang)}...`}
                aria-label="Input area for User 2"
-               className={`bg-card rounded-lg shadow flex-1`} // Remove input-area-collapsed class
-               showTextInput={showTextInput} // Pass state to component
+               className={`bg-card rounded-lg shadow flex-1`}
+               showTextInput={showTextInput}
+               onToggleTextInput={isMobile ? toggleTextInputVisibility : undefined} // Pass toggle function only on mobile
             />
        </div>
 
