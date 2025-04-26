@@ -3,13 +3,13 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ConversationView } from '@/components/lingualive/ConversationView';
 import { UserInputArea } from '@/components/lingualive/UserInputArea';
-import { UserSettingsSheet } from '@/components/lingualive/UserSettingsSheet'; // Import the new settings sheet
+import { UserSettingsSheet } from '@/components/lingualive/UserSettingsSheet';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { translateText, type TranslationRequest, type TranslationResult } from '@/services/translation';
 import type { Message } from '@/components/lingualive/TranslationBubble';
 import { languages, type LanguageCode, getLanguageName } from '@/lib/languages';
-import { ArrowRightLeft, Settings, User, UserRound } from 'lucide-react'; // Import Settings icon
+import { ArrowRightLeft, Settings, User, UserRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { speakText, type Gender } from '@/lib/tts';
 import { Logo } from '@/components/lingualive/Logo';
@@ -233,7 +233,7 @@ export default function LinguaLiveApp() {
        <header className="flex items-center justify-between mb-4 p-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Logo />
-            <h1 className="text-xl font-semibold text-foreground">LinguaLive</h1>
+            <h1 className="text-xl font-semibold text-foreground">TranslateChat</h1>
           </div>
        </header>
 

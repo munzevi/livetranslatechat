@@ -14,24 +14,24 @@ body {
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 180 100% 25.1%; /* Teal */
+    --primary: 190 95% 35%; /* Slightly brighter Teal/Cyan */
     --primary-foreground: 0 0% 100%; /* White text on Teal */
-    --secondary: 0 0% 96.1%; /* Slightly darker gray for secondary elements if needed */
+    --secondary: 210 10% 96%; /* Light Cool Gray for secondary elements */
     --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 94.1%; /* Muted gray #F0F0F0 */
+    --muted: 210 10% 94%; /* Muted gray #EEEFF1 */
     --muted-foreground: 0 0% 45.1%; /* Muted text */
-    --accent: 180 100% 94%; /* Very Light Teal for hover/accent */
-    --accent-foreground: 180 100% 20%; /* Darker Teal text on accent */
+    --accent: 190 90% 94%; /* Very Light Teal/Cyan for hover/accent */
+    --accent-foreground: 190 95% 20%; /* Darker Teal/Cyan text on accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%; /* Default border color */
-    --input: 0 0% 94.1%; /* Light Gray #F0F0F0 for inputs */
-    --ring: 180 100% 25.1%; /* Teal for focus rings */
-    --chart-1: 180 100% 25.1%; /* Teal */
-    --chart-2: 180 70% 40%;
-    --chart-3: 180 50% 55%;
-    --chart-4: 180 30% 70%;
-    --chart-5: 180 10% 85%;
+    --border: 210 10% 88%; /* Slightly darker border color */
+    --input: 210 10% 94%; /* Light Cool Gray #EEEFF1 for inputs */
+    --ring: 190 95% 35%; /* Teal/Cyan for focus rings */
+    --chart-1: 190 95% 35%; /* Teal/Cyan */
+    --chart-2: 190 75% 45%;
+    --chart-3: 190 55% 55%;
+    --chart-4: 190 35% 70%;
+    --chart-5: 190 15% 85%;
     --radius: 0.5rem; /* Keep existing radius */
     /* Sidebar variables remain, but might not be used if sidebar isn't present */
     --sidebar-background: 0 0% 98%;
@@ -52,24 +52,24 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 180 100% 35%; /* Darker Teal for dark mode */
+    --primary: 190 90% 40%; /* Darker Teal/Cyan for dark mode */
     --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 0 0% 62.9%;
-    --accent: 180 100% 15%; /* Darker Accent */
+    --accent: 190 90% 15%; /* Darker Accent */
     --accent-foreground: 0 0% 95%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 180 100% 35%;
-    --chart-1: 180 100% 35%;
-    --chart-2: 180 70% 50%;
-    --chart-3: 180 50% 65%;
-    --chart-4: 180 30% 80%;
-    --chart-5: 180 10% 95%;
+    --ring: 190 90% 40%;
+    --chart-1: 190 90% 40%;
+    --chart-2: 190 70% 50%;
+    --chart-3: 190 50% 65%;
+    --chart-4: 190 30% 80%;
+    --chart-5: 190 10% 95%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

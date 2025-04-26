@@ -1,7 +1,10 @@
 import React from 'react';
+import { MessageSquare } from 'lucide-react'; // Using Lucide icon for simplicity
 
 export function Logo() {
   return (
+    <MessageSquare className="w-8 h-8 text-primary" />
+    /* Previous SVG logo kept for reference if needed
     <svg
       width="32"
       height="32"
@@ -10,7 +13,7 @@ export function Logo() {
       xmlns="http://www.w3.org/2000/svg"
       className="text-primary" // Use primary color from theme
     >
-      {/* Two overlapping speech bubbles */}
+      {/* Two overlapping speech bubbles *//*}
       <path
         d="M20 15 C10 15 5 25 5 35 C5 55 25 75 50 75 C55 75 60 72 60 72 L60 55 C60 55 55 58 50 58 C30 58 20 45 20 35 C20 25 25 15 35 15 L20 15 Z"
         fill="currentColor"
@@ -21,5 +24,6 @@ export function Logo() {
         fill="currentColor"
       />
     </svg>
+    */
   );
 }
