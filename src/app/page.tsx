@@ -28,15 +28,18 @@ export default function NicoleApp() { // Updated component name for clarity
   const lastSpokenMessageId = useRef<string | null>(null);
   const isMobile = useIsMobile(); // Use the hook
   const [showTextInput, setShowTextInput] = useState<boolean>(!isMobile); // Default text input based on device
+  const [clientSideRendered, setClientSideRendered] = useState(false); // Hydration fix state
 
   // State for managing settings sheets
   const [isUser1SettingsOpen, setIsUser1SettingsOpen] = useState<boolean>(false);
   const [isUser2SettingsOpen, setIsUser2SettingsOpen] = useState<boolean>(false);
 
-  // Update text input visibility when isMobile changes
+   // Fix for hydration mismatch with showTextInput logic
   useEffect(() => {
-      setShowTextInput(!isMobile);
+    setShowTextInput(!isMobile);
+    setClientSideRendered(true);
   }, [isMobile]);
+
 
   useEffect(() => {
     // Check for TTS support after component mounts on client-side
@@ -246,12 +249,19 @@ export default function NicoleApp() { // Updated component name for clarity
     setShowTextInput(prev => !prev);
   }, []);
 
+  // Render null or placeholder during SSR/hydration phase if clientSideRendered is false
+  if (!clientSideRendered) {
+    return null; // Or a loading spinner, skeleton etc.
+  }
+
+
   return (
     <div className="flex flex-col h-screen bg-secondary p-2 sm:p-4 md:p-6 lg:p-8 overflow-hidden font-sans">
        <header className="flex items-center justify-between mb-2 sm:mb-4 p-2 flex-shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3"> {/* Increased gap */}
             <Logo />
-            <h1 className="text-lg sm:text-xl font-semibold text-foreground">Nicole</h1> {/* Updated app name */}
+            {/* Apply Pacifico font using the CSS variable */}
+            <h1 className="text-2xl sm:text-3xl font-pacifico text-primary">Nicole</h1> {/* Use CSS variable */}
           </div>
        </header>
 

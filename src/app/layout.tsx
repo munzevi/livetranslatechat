@@ -1,5 +1,5 @@
 import type {Metadata, Viewport} from 'next';
-import {Geist, Geist_Mono} from 'next/font/google';
+import {Geist, Geist_Mono, Pacifico } from 'next/font/google'; // Import Pacifico
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
@@ -11,6 +11,14 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+});
+
+// Set up Pacifico font
+const pacifico = Pacifico({
+  weight: '400', // Pacifico only has weight 400
+  subsets: ['latin'],
+  variable: '--font-pacifico', // Assign CSS variable
+  display: 'swap', // Improve font loading
 });
 
 export const metadata: Metadata = {
@@ -40,7 +48,7 @@ export default function RootLayout({
          No need to add <link rel="manifest"> or <meta name="theme-color"> manually.
          Next.js handles this automatically based on the metadata and viewport exports.
        */}
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-secondary`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${pacifico.variable} antialiased bg-secondary`}> {/* Add Pacifico variable */}
         {children}
         <Toaster />
       </body>

@@ -1,8 +1,8 @@
 import React from 'react';
-import { MessageSquare } from 'lucide-react'; // Using Lucide icon for simplicity
+import { MessagesSquare } from 'lucide-react'; // Changed from MessageSquare
 
 export function Logo() {
   return (
-    <MessageSquare className="w-8 h-8 text-primary" />
+    <MessagesSquare className="w-8 h-8 text-primary" /> // Using MessagesSquare
   );
 }

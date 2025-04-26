@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Send, Bot, Languages, AlertCircle, Keyboard } from 'lucide-react';
+import { Mic, Send, Bot, AlertCircle, Keyboard } from 'lucide-react'; // Removed Languages icon
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { LanguageCode } from '@/lib/languages';
@@ -38,11 +38,13 @@ export function UserInputArea({
   const { toast } = useToast();
   const finalTranscriptRef = useRef(''); // Ref to store final transcript
   const isMobile = useIsMobile();
+  const [clientSideRendered, setClientSideRendered] = useState(false); // Hydration fix state
 
-  // Check for SpeechRecognition support *after* mount
+  // Hydration Fix: Set state only after component mounts
   useEffect(() => {
     const supported = !!(typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition));
     setRecognitionSupported(supported);
+    setClientSideRendered(true);
     // Log warning only on client if not supported, after check
     if (typeof window !== 'undefined' && !supported) {
         console.warn("Speech Recognition API not supported in this browser.");
@@ -231,12 +233,25 @@ export function UserInputArea({
     }
   };
 
+  // Hydration fix: Render placeholder or null during SSR/hydration phase
+   if (!clientSideRendered) {
+    return (
+        <div className={cn(
+            "flex flex-col items-center gap-2 p-2 sm:p-3 border rounded-lg bg-card shadow-sm w-full relative min-h-[150px] justify-center", // Ensure some height
+            className
+        )}>
+            {/* Optional: You can add a skeleton loader here */}
+        </div>
+    );
+  }
+
   // Determine helper text content *after* mount based on recognitionSupported state
   const micHelperText = isListening
     ? "Listening..."
     : recognitionSupported
     ? "Tap the mic to speak"
     : "Voice input not supported";
+
 
   return (
     <div className={cn(
@@ -251,13 +266,13 @@ export function UserInputArea({
             onClick={toggleListening}
             disabled={isTranslating || !recognitionSupported}
             className={cn(
-                "p-3 rounded-full text-primary hover:bg-primary/10 aspect-square h-16 w-16 sm:h-20 sm:w-20",
+                "p-4 rounded-full text-primary hover:bg-primary/10 aspect-square h-20 w-20 sm:h-24 sm:w-24", // Increased size
                 isListening && "bg-red-500 text-white hover:bg-red-600 animate-pulse",
                 (isTranslating || !recognitionSupported) && "opacity-50 cursor-not-allowed"
             )}
             aria-label={isListening ? "Stop listening" : "Start voice input"}
         >
-            <Mic className="w-8 h-8 sm:w-10 sm:h-10" />
+            <Mic className="w-10 h-10 sm:w-12 sm:w-12" /> {/* Increased icon size */}
         </Button>
 
          {/* Helper Text for Voice Input */}
@@ -313,7 +328,7 @@ export function UserInputArea({
          )}
 
         {/* Optional: Indication for unsupported browser - Show based on state after mount */}
-        {typeof window !== 'undefined' && !recognitionSupported && !showTextInput && (
+        {clientSideRendered && !recognitionSupported && !showTextInput && (
             <div className="text-destructive text-xs gap-1 flex items-center justify-center mt-1">
                <AlertCircle className="w-3 h-3" />
                Voice not supported

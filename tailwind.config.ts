@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { fontFamily } from "tailwindcss/defaultTheme"; // Import default theme
 
 export default {
     darkMode: ["class"],
@@ -9,6 +10,13 @@ export default {
   ],
   theme: {
   	extend: {
+        fontFamily: {
+            // Add Pacifico using the CSS variable defined in layout.tsx
+            pacifico: ["var(--font-pacifico)", ...fontFamily.sans],
+            // Keep Geist Sans and Mono if needed elsewhere, otherwise remove
+            sans: ["var(--font-geist-sans)", ...fontFamily.sans],
+            mono: ["var(--font-geist-mono)", ...fontFamily.mono],
+          },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
