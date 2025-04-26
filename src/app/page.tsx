@@ -7,73 +7,116 @@ import { UserInputArea } from '@/components/lingualive/UserInputArea';
 import { Card, CardContent } from '@/components/ui/card';
 import { translateText, type TranslationRequest, type TranslationResult } from '@/services/translation';
 import type { Message } from '@/components/lingualive/TranslationBubble';
-import { languages } from '@/lib/languages';
+import { languages, type LanguageCode } from '@/lib/languages';
 import { Separator } from '@/components/ui/separator';
 import { Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { speakText } from '@/lib/tts'; // Import the TTS utility
 
 export default function LinguaLiveApp() {
-  const [user1Lang, setUser1Lang] = useState<string>('en');
-  const [user2Lang, setUser2Lang] = useState<string>('tr');
+  const [user1Lang, setUser1Lang] = useState<LanguageCode>('en');
+  const [user2Lang, setUser2Lang] = useState<LanguageCode>('tr');
   const [conversation, setConversation] = useState<Message[]>([]);
-  const [isUser1Speaking, setIsUser1Speaking] = useState<boolean>(false);
-  const [isUser2Speaking, setIsUser2Speaking] = useState<boolean>(false);
+  const [isUser1Translating, setIsUser1Translating] = useState<boolean>(false);
+  const [isUser2Translating, setIsUser2Translating] = useState<boolean>(false);
   const { toast } = useToast();
   const [isTTSSupported, setIsTTSSupported] = useState<boolean>(false);
 
   // Check for TTS support on component mount (client-side only)
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      setIsTTSSupported(true);
+      // Check for voices also, as API might exist but have no voices
+       const checkVoices = () => {
+            if (window.speechSynthesis.getVoices().length > 0) {
+                setIsTTSSupported(true);
+            } else {
+                 console.warn("Speech Synthesis API exists, but no voices found initially.");
+                 // Try again if voices load later
+                 window.speechSynthesis.onvoiceschanged = () => {
+                     if(window.speechSynthesis.getVoices().length > 0) {
+                         setIsTTSSupported(true);
+                         window.speechSynthesis.onvoiceschanged = null; // Remove listener once voices are confirmed
+                     } else {
+                         console.warn("Speech Synthesis API exists, but still no voices found after event.");
+                         setIsTTSSupported(false); // Explicitly set to false if voices never load
+                     }
+                 };
+            }
+       };
+       // Voices might not be loaded immediately
+       if (window.speechSynthesis.getVoices().length > 0) {
+            checkVoices();
+       } else {
+           window.speechSynthesis.onvoiceschanged = checkVoices;
+       }
+
     } else if (typeof window !== 'undefined') {
         console.warn("Speech Synthesis API not supported in this browser.");
-        // Optionally inform the user TTS isn't available
-        // toast({
-        //     title: "Feature Unavailable",
-        //     description: "Text-to-speech is not supported by your browser.",
-        //     variant: "destructive" // Or default variant
-        // });
+        setIsTTSSupported(false);
     }
-  }, []); // Removed toast from dependency array here as it's static
+  }, []); // Empty dependency array ensures this runs only once on mount
 
-  const handleTranslate = useCallback(async (text: string, sourceUser: 'user1' | 'user2') => {
+  const handleTranslateAndSpeak = useCallback(async (text: string, sourceUser: 'user1' | 'user2', isVoiceInput: boolean = false, targetLangForTTS?: LanguageCode) => {
     const sourceLanguage = sourceUser === 'user1' ? user1Lang : user2Lang;
     const targetLanguage = sourceUser === 'user1' ? user2Lang : user1Lang;
 
     if (!text || !sourceLanguage || !targetLanguage) return;
 
-    // Basic check for identical languages
+    // Set loading state
+    if (sourceUser === 'user1') setIsUser1Translating(true);
+    else setIsUser2Translating(true);
+
+    // Add original message immediately
+    const originalMessage: Message = {
+        id: Date.now().toString(),
+        originalText: text,
+        translatedText: '...', // Placeholder for translation
+        sourceLanguage: sourceLanguage,
+        targetLanguage: targetLanguage,
+        user: sourceUser,
+        timestamp: new Date(),
+     };
+     setConversation((prev) => [...prev, originalMessage]);
+
+    // Skip translation and TTS if languages are the same
     if (sourceLanguage === targetLanguage) {
         toast({
             title: "Translation Skipped",
             description: "Source and target languages are the same.",
         });
-        const newMessage: Message = {
-            id: Date.now().toString(),
-            originalText: text,
-            translatedText: text,
-            sourceLanguage: sourceLanguage,
-            targetLanguage: targetLanguage,
-            user: sourceUser,
-            timestamp: new Date(),
-         };
-         setConversation((prev) => [...prev, newMessage]);
+        setConversation((prev) =>
+            prev.map(msg =>
+            msg.id === originalMessage.id
+                ? { ...msg, translatedText: text } // Update placeholder with original text
+                : msg
+            )
+        );
+         // Reset loading state
+         if (sourceUser === 'user1') setIsUser1Translating(false);
+         else setIsUser2Translating(false);
         return;
     }
 
+    // Perform Translation
     const request: TranslationRequest = {
       text,
       sourceLanguage,
       targetLanguage,
     };
 
-    if (sourceUser === 'user1') setIsUser1Speaking(true);
-    else setIsUser2Speaking(true);
-
     try {
       const result: TranslationResult = await translateText(request);
 
+      // Update message with translation
+      setConversation((prev) =>
+        prev.map(msg =>
+          msg.id === originalMessage.id
+            ? { ...msg, translatedText: result.translatedText }
+            : msg
+        )
+      );
+
+      // Handle translation errors specifically
       if (result.translatedText.startsWith('Translation currently unavailable')) {
            toast({
                 variant: "destructive",
@@ -81,44 +124,48 @@ export default function LinguaLiveApp() {
                 description: result.translatedText,
            });
       } else {
-            const newMessage: Message = {
-                id: Date.now().toString(),
-                originalText: text,
-                translatedText: result.translatedText,
-                sourceLanguage: sourceLanguage,
-                targetLanguage: targetLanguage,
-                user: sourceUser,
-                timestamp: new Date(),
-            };
-            setConversation((prev) => [...prev, newMessage]);
-
-            // Speak the translated text if TTS is supported
-            if (isTTSSupported) {
-                speakText(result.translatedText, targetLanguage, (errorMsg) => {
+            // Speak the translated text if it was voice input and TTS is supported
+            if (isVoiceInput && isTTSSupported && targetLangForTTS) {
+                speakText(result.translatedText, targetLangForTTS, (errorMsg) => { // Use targetLangForTTS
                      toast({
                         variant: "destructive",
                         title: "Speech Error",
                         description: errorMsg,
                      });
                 });
+            } else if (isVoiceInput && !isTTSSupported) {
+                 toast({
+                    title: "Speech Unavailable",
+                    description: "Could not speak the translation as text-to-speech is not supported.",
+                 });
             }
       }
     } catch (error) {
-      console.error('Translation failed:', error);
+      console.error('Translation or Speech failed:', error);
+      // Update the message with an error state
+       setConversation((prev) =>
+        prev.map(msg =>
+          msg.id === originalMessage.id
+            ? { ...msg, translatedText: "Error: Translation failed." }
+            : msg
+        )
+      );
        toast({
           variant: "destructive",
-          title: "Translation Error",
-          description: "An unexpected error occurred during translation.",
+          title: "Error",
+          description: "An unexpected error occurred.",
       });
     } finally {
-       if (sourceUser === 'user1') setIsUser1Speaking(false);
-       else setIsUser2Speaking(false);
+       // Reset loading state
+       if (sourceUser === 'user1') setIsUser1Translating(false);
+       else setIsUser2Translating(false);
     }
 
   }, [user1Lang, user2Lang, toast, isTTSSupported]); // Added isTTSSupported
 
-  const handleUserInput = (text: string, user: 'user1' | 'user2') => {
-    handleTranslate(text, user);
+  // Updated handler to receive targetLangForTTS
+  const handleUserInput = (text: string, user: 'user1' | 'user2', isVoiceInput: boolean = false, targetLangForTTS?: LanguageCode) => {
+    handleTranslateAndSpeak(text, user, isVoiceInput, targetLangForTTS); // Pass targetLangForTTS
   };
 
   return (
@@ -166,16 +213,18 @@ export default function LinguaLiveApp() {
          <UserInputArea
            user="user1"
            language={user1Lang}
+           targetLanguage={user2Lang} // Pass the target language for TTS
            onSend={handleUserInput}
-           isSpeaking={isUser1Speaking}
+           isSpeaking={isUser1Translating} // Pass translating state
            placeholder={`Speak or type in ${languages.find(l => l.code === user1Lang)?.name || 'your language'}...`}
            aria-label="Input area for User 1"
          />
          <UserInputArea
            user="user2"
            language={user2Lang}
+           targetLanguage={user1Lang} // Pass the target language for TTS
            onSend={handleUserInput}
-           isSpeaking={isUser2Speaking}
+           isSpeaking={isUser2Translating} // Pass translating state
            placeholder={`Speak or type in ${languages.find(l => l.code === user2Lang)?.name || 'your language'}...`}
            aria-label="Input area for User 2"
          />

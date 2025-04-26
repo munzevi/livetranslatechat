@@ -6,11 +6,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Mic, Send, Bot, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast'; // Import useToast
+import type { LanguageCode } from '@/lib/languages'; // Use LanguageCode type
 
 interface UserInputAreaProps extends React.AriaAttributes {
   user: 'user1' | 'user2';
-  language: string; // Language code for placeholder/actions and speech recognition
-  onSend: (text: string, user: 'user1' | 'user2') => void;
+  language: LanguageCode; // Language code for placeholder/actions and speech recognition
+  targetLanguage: LanguageCode; // Target language for TTS
+  onSend: (text: string, user: 'user1' | 'user2', isVoiceInput?: boolean, targetLangForTTS?: LanguageCode) => void; // Added targetLangForTTS
   isSpeaking: boolean; // Indicates if the translation is processing
   placeholder?: string;
 }
@@ -18,6 +20,7 @@ interface UserInputAreaProps extends React.AriaAttributes {
 export function UserInputArea({
   user,
   language,
+  targetLanguage, // Receive target language
   onSend,
   isSpeaking,
   placeholder,
@@ -26,18 +29,37 @@ export function UserInputArea({
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const { toast } = useToast(); // Get toast function
+  const { toast } = useToast();
 
-  // Moved these inside the component function body
   const isClient = typeof window !== 'undefined';
-  // Check for SpeechRecognition API vendor prefixes only on the client
   const SpeechRecognition = isClient ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
   const recognitionSupported = !!SpeechRecognition;
+
+  // Define stopListening *before* the useEffect that uses it
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current && isListening) {
+        try {
+            // Check if recognition is running before stopping
+            // Some browsers throw an error if stop() is called when not running
+             recognitionRef.current.stop();
+        } catch (error) {
+             console.error("Error stopping speech recognition:", error);
+             // Potentially handle specific stop errors if needed, e.g., InvalidStateError
+        } finally {
+             // Ensure state is updated regardless of stop success/failure
+             setIsListening(false);
+             // Let the onend event handle the state, don't nullify ref here
+             // recognitionRef.current = null; // Avoid nullifying here
+        }
+    } else {
+        // If stopListening is called when not listening (e.g., due to error/end event), just ensure state is false
+        setIsListening(false);
+    }
+  }, [isListening]); // Dependencies for stopListening
 
 
    // Initialize SpeechRecognition
   useEffect(() => {
-    // Ensure this runs only on the client and if supported
     if (!isClient || !recognitionSupported || !SpeechRecognition) {
         if (isClient && !recognitionSupported) {
             console.warn("Speech Recognition API not supported in this browser.");
@@ -45,20 +67,27 @@ export function UserInputArea({
         return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false; // Stop listening after a single utterance
-    recognition.interimResults = false; // Get final results only
-    recognition.lang = language; // Set the language for recognition
+    // Create instance only if not already created (or if language changes and needs re-init)
+    if (!recognitionRef.current) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false; // Stop listening after a single utterance
+        recognitionRef.current.interimResults = false; // Get final results only
+    }
 
-    recognition.onresult = (event) => {
+    const recognition = recognitionRef.current;
+    recognition.lang = language; // Update language
+
+    // Define handlers within useEffect or ensure they are stable references
+    const handleResult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
-      setInputText(transcript);
-      // Optionally auto-send after recognition:
-      // handleSend(transcript);
-      stopListening(); // Ensure listening stops after result
+      // Pass the target language for TTS along with the transcript
+      onSend(transcript, user, true, targetLanguage);
+      // Stop listening after result is processed
+      // No need to call stopListening() here as onend will fire
+      // stopListening(); // Remove this call
     };
 
-    recognition.onerror = (event) => {
+    const handleError = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       let errorMessage = 'Speech recognition error occurred.';
       if (event.error === 'no-speech') {
@@ -68,35 +97,45 @@ export function UserInputArea({
       } else if (event.error === 'not-allowed') {
          errorMessage = 'Microphone access denied. Please allow microphone access in your browser settings.';
       }
-       toast({ // Use toast for error feedback
+       toast({
         variant: "destructive",
         title: "Voice Input Error",
         description: errorMessage,
       });
-      stopListening(); // Ensure listening stops on error
+      // Ensure listening stops on error
+      stopListening(); // Call stopListening on error
     };
 
-     recognition.onend = () => {
-      // Only set isListening to false if it wasn't manually stopped before onresult/onerror
-      // Check ref existence to prevent state update after unmount or if manually stopped
-       if (recognitionRef.current) {
-           setIsListening(false);
-       }
+     const handleEnd = () => {
+        // Set listening to false when recognition ends naturally or is stopped
+        setIsListening(false);
+        // Don't nullify ref on end, keep it for potential restart
+        // recognitionRef.current = null;
     };
 
-    recognitionRef.current = recognition;
+    // Assign event handlers
+    recognition.onresult = handleResult;
+    recognition.onerror = handleError;
+    recognition.onend = handleEnd;
 
      // Cleanup function
     return () => {
         if (recognitionRef.current) {
-            recognitionRef.current.abort(); // Stop recognition if component unmounts
-            recognitionRef.current = null; // Clear ref
+            // Remove event listeners to prevent memory leaks
+            recognition.onresult = null;
+            recognition.onerror = null;
+            recognition.onend = null;
+            // Abort any ongoing recognition
+            recognitionRef.current.abort();
+            // Optionally nullify ref on unmount, but usually not needed if managed properly
+             // recognitionRef.current = null;
         }
     };
-    // Add SpeechRecognition to dependency array, although it shouldn't change after initial check
-  }, [language, toast, isClient, recognitionSupported, SpeechRecognition]);
+    // onSend, user, targetLanguage, and stopListening are dependencies now
+  }, [language, toast, isClient, recognitionSupported, SpeechRecognition, onSend, user, targetLanguage, stopListening]);
 
-   // Update recognition language when the selected language changes
+
+  // Update recognition language when the selected language changes
   useEffect(() => {
     if (recognitionRef.current) {
       recognitionRef.current.lang = language;
@@ -104,7 +143,6 @@ export function UserInputArea({
   }, [language]);
 
   const startListening = useCallback(() => {
-    // Check support again before starting
     if (!recognitionSupported || !SpeechRecognition) {
          toast({
             variant: "destructive",
@@ -113,44 +151,52 @@ export function UserInputArea({
          });
          return;
     }
-    if (recognitionRef.current && !isListening && !isSpeaking) {
+    // Ensure we have a recognition instance
+    if (!recognitionRef.current) {
+        console.error("Speech recognition instance not available.");
+        toast({ variant: "destructive", title: "Error", description: "Could not initialize voice input." });
+        return;
+    }
+
+    if (!isListening && !isSpeaking) {
       try {
+        // Update language just before starting
+        recognitionRef.current.lang = language;
         recognitionRef.current.start();
         setIsListening(true);
       } catch (error) {
            console.error("Failed to start speech recognition:", error);
-           toast({
-              variant: "destructive",
-              title: "Voice Input Error",
-              description: "Could not start voice input. Please try again.",
-           });
-           setIsListening(false); // Ensure listening state is reset on error
+           const domError = error as DOMException;
+           if (domError.name === 'InvalidStateError') {
+                // Already listening, perhaps? Or stopping/starting too quickly.
+                // console.warn("Attempted to start speech recognition in an invalid state.");
+                // Optionally provide feedback or just ignore:
+                // toast({ variant: "default", title: "Voice Input", description: "Already listening." });
+                setIsListening(true); // Ensure state reflects potential listening state
+           } else if (domError.name === 'NotAllowedError') {
+                toast({ variant: "destructive", title: "Permission Denied", description: "Microphone access was denied." });
+                setIsListening(false);
+           } else {
+               toast({
+                  variant: "destructive",
+                  title: "Voice Input Error",
+                  description: "Could not start voice input. Check microphone and permissions.",
+               });
+                setIsListening(false); // Reset state on other errors
+           }
       }
     }
-  }, [isListening, isSpeaking, toast, recognitionSupported, SpeechRecognition]); // Added SpeechRecognition to deps
+  }, [isListening, isSpeaking, toast, recognitionSupported, SpeechRecognition, language]); // Added language
 
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
-       // Set ref to null *before* calling stop, so onend knows it was intentional
-       const rec = recognitionRef.current;
-       recognitionRef.current = null; // Indicate manual stop
-       rec.stop();
-      // onend might still fire, but the check inside onend will prevent setIsListening(false)
-    }
-    // Ensure state is false if called when not listening or after stopping
-    setIsListening(false);
-  }, [isListening]);
 
   const handleSend = useCallback(() => {
     const textToSend = inputText.trim();
-    if (textToSend && !isSpeaking) {
-       if (isListening) { // Stop listening only if it's active
-          stopListening();
-       }
-       onSend(textToSend, user);
+    if (textToSend && !isSpeaking && !isListening) { // Also disable send if listening
+       // Text input: isVoiceInput is false, no specific targetLangForTTS needed here (handled in main component)
+       onSend(textToSend, user, false);
        setInputText('');
     }
-  }, [inputText, onSend, user, isSpeaking, isListening, stopListening]); // Added isListening
+  }, [inputText, onSend, user, isSpeaking, isListening]); // Added isListening
 
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -161,7 +207,6 @@ export function UserInputArea({
   };
 
   const toggleListening = () => {
-    // Check support before toggling
      if (!recognitionSupported) {
          toast({
             variant: "destructive",
@@ -173,6 +218,7 @@ export function UserInputArea({
     if (isListening) {
       stopListening();
     } else {
+      setInputText('');
       startListening();
     }
   };
@@ -191,14 +237,12 @@ export function UserInputArea({
         {...ariaProps}
       />
       <div className="flex justify-between items-center">
-         {/* Only show warning on client if not supported */}
          {!recognitionSupported && isClient && (
              <div className="flex items-center text-destructive text-xs gap-1">
                 <AlertCircle className="w-4 h-4" />
                 Voice input not supported
              </div>
          )}
-         {/* Only show Mic button on client if supported */}
          {recognitionSupported && isClient && (
             <Button
                 variant="ghost"
@@ -211,8 +255,7 @@ export function UserInputArea({
                 <Mic className="w-5 h-5" />
             </Button>
          )}
-         {/* Ensure the button takes space even if Mic button isn't rendered */}
-         {(!recognitionSupported || !isClient) && <div />}
+         {(!recognitionSupported || !isClient) && <div className="w-10 h-10" />} {/* Placeholder to maintain layout */}
 
          <Button
             onClick={handleSend}
