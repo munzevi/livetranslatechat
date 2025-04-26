@@ -1,16 +1,15 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { LanguageSelector } from '@/components/lingualive/LanguageSelector';
 import { ConversationView } from '@/components/lingualive/ConversationView';
 import { UserInputArea } from '@/components/lingualive/UserInputArea';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card'; // Import Card
 import { Button } from '@/components/ui/button';
 import { translateText, type TranslationRequest, type TranslationResult } from '@/services/translation';
 import type { Message } from '@/components/lingualive/TranslationBubble';
 import { languages, type LanguageCode } from '@/lib/languages';
-import { Separator } from '@/components/ui/separator';
-import { ArrowRightLeft, Cog } from 'lucide-react'; // Changed icons
+import { ArrowRightLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { speakText } from '@/lib/tts';
 
@@ -22,6 +21,7 @@ export default function LinguaLiveApp() {
   const [isUser2Translating, setIsUser2Translating] = useState<boolean>(false);
   const { toast } = useToast();
   const [isTTSSupported, setIsTTSSupported] = useState<boolean>(false);
+  const lastSpokenMessageId = useRef<string | null>(null);
 
   // Check for TTS support
   useEffect(() => {
@@ -34,18 +34,21 @@ export default function LinguaLiveApp() {
           window.speechSynthesis.onvoiceschanged = null;
         } else {
           console.warn("Speech Synthesis API exists, but no voices found initially. Waiting for voiceschanged event.");
-          window.speechSynthesis.onvoiceschanged = () => {
+          // Ensure the event listener is attached only once
+          const handleVoicesChanged = () => {
             console.log("voiceschanged event fired.");
             const updatedVoices = window.speechSynthesis.getVoices();
             if (updatedVoices.length > 0) {
               console.log("TTS Voices found after event:", updatedVoices.map(v => `${v.name} (${v.lang})`));
               setIsTTSSupported(true);
-              window.speechSynthesis.onvoiceschanged = null;
             } else {
               console.warn("Speech Synthesis API exists, but still no voices found after event.");
               setIsTTSSupported(false);
             }
+             // Clean up listener
+            window.speechSynthesis.onvoiceschanged = null;
           };
+          window.speechSynthesis.onvoiceschanged = handleVoicesChanged;
         }
       };
       checkVoices();
@@ -53,14 +56,24 @@ export default function LinguaLiveApp() {
       console.warn("Speech Synthesis API not supported in this browser.");
       setIsTTSSupported(false);
     }
+
+    // Cleanup function for the component unmount
+     return () => {
+       if (typeof window !== 'undefined' && window.speechSynthesis) {
+           window.speechSynthesis.cancel(); // Cancel any ongoing speech
+           window.speechSynthesis.onvoiceschanged = null; // Remove listener if component unmounts quickly
+       }
+     };
   }, []);
 
-  const handleTranslateAndSpeak = useCallback(async (text: string, sourceUser: 'user1' | 'user2', isVoiceInput: boolean = false) => {
+
+  const handleTranslateAndSpeak = useCallback(async (text: string, sourceUser: 'user1' | 'user2', isVoiceInput: boolean) => {
     const sourceLanguage = sourceUser === 'user1' ? user1Lang : user2Lang;
     const targetLanguage = sourceUser === 'user1' ? user2Lang : user1Lang;
     const targetLangForTTS = targetLanguage; // Target language is where the translation should be spoken
 
-    console.log(`Translating from ${sourceLanguage} to ${targetLanguage}. Voice input: ${isVoiceInput}. TTS Target: ${targetLangForTTS}`);
+    console.log(`Translate/Speak - User: ${sourceUser}, Source: ${sourceLanguage}, Target: ${targetLanguage}, VoiceInput: ${isVoiceInput}, Text: "${text}"`);
+
 
     if (!text || !sourceLanguage || !targetLanguage) {
       console.warn("Translation skipped: Missing text, source, or target language.");
@@ -70,16 +83,19 @@ export default function LinguaLiveApp() {
     const setLoading = sourceUser === 'user1' ? setIsUser1Translating : setIsUser2Translating;
     setLoading(true);
 
+    const messageId = Date.now().toString();
     const originalMessage: Message = {
-      id: Date.now().toString(),
+      id: messageId,
       originalText: text,
       translatedText: '...', // Placeholder
       sourceLanguage: sourceLanguage,
       targetLanguage: targetLanguage,
       user: sourceUser,
       timestamp: new Date(),
+      isVoiceInput: isVoiceInput, // Store if it was voice input
     };
     setConversation((prev) => [...prev, originalMessage]);
+
 
     if (sourceLanguage === targetLanguage) {
       console.log("Translation skipped: Source and target languages are the same.");
@@ -94,16 +110,20 @@ export default function LinguaLiveApp() {
             : msg
         )
       );
+       // Speak original text if it was voice input and languages are same
+       // Only speak if this is the first time or the message ID is new
+       if (isVoiceInput && isTTSSupported && lastSpokenMessageId.current !== messageId) {
+            lastSpokenMessageId.current = messageId; // Mark as spoken
+            speakText(text, sourceLanguage, (errorMsg) => {
+               console.error("TTS Error Callback (same lang):", errorMsg);
+                toast({ variant: "destructive", title: "Speech Error", description: errorMsg });
+                lastSpokenMessageId.current = null; // Allow retry on error?
+            });
+        } else if (isVoiceInput && !isTTSSupported) {
+            toast({ title: "Speech Unavailable", description: "Could not speak the message." });
+        }
+
       setLoading(false);
-      // Speak original text if it was voice input and languages are same
-      if (isVoiceInput && isTTSSupported) {
-          speakText(text, sourceLanguage, (errorMsg) => {
-              console.error("TTS Error Callback:", errorMsg);
-               toast({ variant: "destructive", title: "Speech Error", description: errorMsg });
-          });
-      } else if (isVoiceInput && !isTTSSupported) {
-          toast({ title: "Speech Unavailable", description: "Could not speak the message." });
-      }
       return;
     }
 
@@ -135,15 +155,17 @@ export default function LinguaLiveApp() {
           description: result.translatedText,
         });
       } else if (isVoiceInput) { // Speak the *translated* text if voice input
-        if (isTTSSupported && targetLangForTTS) {
+        if (isTTSSupported && targetLangForTTS && lastSpokenMessageId.current !== messageId) {
+          lastSpokenMessageId.current = messageId; // Mark as spoken
           console.log(`Attempting to speak translated: "${result.translatedText}" in ${targetLangForTTS}`);
           speakText(result.translatedText, targetLangForTTS, (errorMsg) => {
-            console.error("TTS Error Callback:", errorMsg);
+            console.error("TTS Error Callback (translated):", errorMsg);
             toast({
               variant: "destructive",
               title: "Speech Error",
               description: errorMsg,
             });
+            lastSpokenMessageId.current = null; // Allow retry on error?
           });
         } else if (!isTTSSupported) {
           console.warn("TTS not supported, skipping speech.");
@@ -173,6 +195,7 @@ export default function LinguaLiveApp() {
         title: "Error",
         description: "An unexpected error occurred during processing.",
       });
+      lastSpokenMessageId.current = null; // Reset on unexpected error
     } finally {
       setLoading(false);
       console.log("Translation/Speaking process finished for user:", sourceUser);
@@ -180,11 +203,17 @@ export default function LinguaLiveApp() {
 
   }, [user1Lang, user2Lang, toast, isTTSSupported]);
 
-  // Receives only text and user, determines if voice input was used
-  const handleUserInput = (text: string, user: 'user1' | 'user2', isVoiceInput: boolean) => {
+
+  const handleUserInput = useCallback((text: string, user: 'user1' | 'user2', isVoiceInput: boolean) => {
       console.log(`User Input Received - User: ${user}, Text: "${text}", Voice Input: ${isVoiceInput}`);
+       if (!text) {
+          console.warn("Empty input received, ignoring.");
+          return;
+      }
+      // Reset last spoken message ID before handling new input
+      lastSpokenMessageId.current = null;
       handleTranslateAndSpeak(text, user, isVoiceInput); // Pass voice input flag
-  };
+  },[handleTranslateAndSpeak]); // Add handleTranslateAndSpeak to dependency array
 
   const swapLanguages = () => {
     setUser1Lang(user2Lang);
@@ -198,10 +227,7 @@ export default function LinguaLiveApp() {
       {/* Header */}
       <header className="flex items-center justify-between mb-4 p-2 flex-shrink-0">
         <h1 className="text-xl font-semibold text-foreground">LetSpeak</h1>
-        <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <Cog className="w-5 h-5" />
-            <span className="sr-only">Settings</span>
-        </Button>
+        {/* Removed Settings Button */}
       </header>
 
       {/* Language Selectors */}
@@ -242,19 +268,13 @@ export default function LinguaLiveApp() {
         </div>
       </div>
 
-      {/* Separator - removed */}
-      {/* <Separator className="my-4 flex-shrink-0" /> */}
-
       {/* Conversation Area */}
-      <div className="flex-grow min-h-0 py-4">
-        <ConversationView conversation={conversation} />
-      </div>
-
-      {/* Separator - removed */}
-      {/* <Separator className="my-4 flex-shrink-0" /> */}
+      <Card className="flex-grow min-h-0 overflow-hidden border shadow-sm bg-background"> {/* Wrap in Card */}
+           <ConversationView conversation={conversation} />
+      </Card>
 
       {/* Input Areas Container */}
-       <div className="flex flex-col md:flex-row gap-4 mt-auto flex-shrink-0 bg-secondary -mx-4 -mb-4 md:-mx-6 md:-mb-6 lg:-mx-8 lg:-mb-8 p-4 md:p-6 lg:p-8 border-t">
+       <div className="flex flex-col md:flex-row gap-4 mt-4 flex-shrink-0"> {/* Reduced gap and removed extra bg/padding */}
          <UserInputArea
            user="user1"
            language={user1Lang}
@@ -262,7 +282,7 @@ export default function LinguaLiveApp() {
            isTranslating={isUser1Translating}
            placeholder={`Speak or type in ${languages.find(l => l.code === user1Lang)?.name || 'your language'}...`}
            aria-label="Input area for User 1"
-           className="bg-background rounded-lg shadow" // Style input area like image
+           className="bg-background rounded-lg shadow flex-1" // Added flex-1
          />
          <UserInputArea
            user="user2"
@@ -271,7 +291,7 @@ export default function LinguaLiveApp() {
            isTranslating={isUser2Translating}
            placeholder={`Speak or type in ${languages.find(l => l.code === user2Lang)?.name || 'their language'}...`}
            aria-label="Input area for User 2"
-           className="bg-background rounded-lg shadow" // Style input area like image
+           className="bg-background rounded-lg shadow flex-1" // Added flex-1
          />
       </div>
     </div>
