@@ -126,12 +126,13 @@ export default function NicoleApp() {
       isVoiceInput: isVoiceInput,
     };
     setConversation((prev) => [...prev, originalMessage]);
-    lastSpokenMessageId.current = null;
+    lastSpokenMessageId.current = null; // Reset last spoken ID for new message
 
 
     let translationResultText = text;
     let translationSuccess = true;
 
+    // Only call translation if source and target languages are different
     if (sourceLanguage !== targetLanguage) {
         const request: TranslationRequest = { text, sourceLanguage, targetLanguage };
         try {
@@ -140,61 +141,68 @@ export default function NicoleApp() {
             console.log(`Translation result for ID ${messageId}:`, result);
 
             if (result.translatedText.startsWith('Error:') || result.translatedText.startsWith('Translation currently unavailable')) {
-                translationResultText = result.translatedText;
+                translationResultText = result.translatedText; // Keep the error message
                 translationSuccess = false;
                 console.error("Translation Service Error:", result.translatedText);
                 toast({ variant: "destructive", title: "Translation Error", description: result.translatedText });
             } else {
-                translationResultText = result.translatedText;
+                translationResultText = result.translatedText; // Use the successful translation
             }
         } catch (error) {
             translationSuccess = false;
-            translationResultText = "Error: Translation failed.";
+            translationResultText = "Error: Translation failed."; // General error if API call fails
             console.error('Translation async processing failed:', error);
             toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred during translation." });
-        } finally {
-             setConversation((prev) =>
-                prev.map(msg =>
-                msg.id === messageId ? { ...msg, translatedText: translationResultText } : msg
-                )
-            );
         }
     } else {
+        // If languages are the same, no translation needed, success is true
+        translationResultText = text;
+        translationSuccess = true;
         console.log("Translation skipped: Source and target languages are the same.");
-         setConversation((prev) =>
-            prev.map(msg =>
-            msg.id === messageId ? { ...msg, translatedText: text } : msg
-            )
-        );
     }
 
-    // Speak only if input was voice AND translation was successful (or not needed)
+    // Update conversation bubble with the final text (original, translated, or error)
+    setConversation((prev) =>
+        prev.map(msg =>
+        msg.id === messageId ? { ...msg, translatedText: translationResultText } : msg
+        )
+    );
+
+
+    // --- Text-to-Speech Logic ---
+    // Speak only if input was voice AND translation was successful (or not needed because languages match)
     if (isVoiceInput && translationSuccess) {
-         if (isTTSSupported && lastSpokenMessageId.current !== messageId) {
-             lastSpokenMessageId.current = messageId;
-             const textToSpeak = translationResultText;
-             const languageToSpeakIn = targetLanguage;
-             const voiceGenderToUse = targetRecipientGender;
+        if (isTTSSupported && lastSpokenMessageId.current !== messageId) {
+            lastSpokenMessageId.current = messageId; // Mark this message as being spoken
+            const textToSpeak = translationResultText; // Speak the final text
+            const languageToSpeakIn = targetLanguage; // Speak in the target language
+            const voiceGenderToUse = targetRecipientGender; // Use the recipient's preferred gender
 
-             console.log(`Attempting to speak for ID ${messageId}: "${textToSpeak}" in ${languageToSpeakIn} (${voiceGenderToUse} voice)`);
+            console.log(`Attempting to speak for ID ${messageId}: "${textToSpeak}" in ${languageToSpeakIn} (${voiceGenderToUse} voice)`);
 
-             speakText(textToSpeak, languageToSpeakIn, voiceGenderToUse, (errorMsg) => {
-                 console.error(`TTS Error Callback for ID ${messageId}:`, errorMsg);
-                 toast({ variant: "destructive", title: "Speech Error", description: errorMsg });
-                 lastSpokenMessageId.current = null;
-             });
-         } else if (!isTTSSupported) {
-             console.warn("TTS not supported, skipping speech.");
-             toast({ title: "Speech Unavailable", description: "Text-to-speech is not supported or no voices found." });
-         } else if (lastSpokenMessageId.current === messageId) {
-             console.log(`Speech already initiated for ID ${messageId}, skipping duplicate call.`);
-         }
+            speakText(textToSpeak, languageToSpeakIn, voiceGenderToUse, (errorMsg) => {
+                console.error(`TTS Error Callback for ID ${messageId}:`, errorMsg);
+                toast({ variant: "destructive", title: "Speech Error", description: errorMsg });
+                // Reset last spoken only if this specific utterance failed?
+                // If we reset here unconditionally, a subsequent success for the same ID might be blocked.
+                // Maybe only reset if the error is critical like 'network'?
+                // For now, let's keep it simple: reset if there's an error.
+                if (lastSpokenMessageId.current === messageId) {
+                     lastSpokenMessageId.current = null;
+                }
+            });
+        } else if (!isTTSSupported) {
+            console.warn("TTS not supported, skipping speech.");
+            toast({ title: "Speech Unavailable", description: "Text-to-speech is not supported or no voices found." });
+        } else if (lastSpokenMessageId.current === messageId) {
+            console.log(`Speech already initiated for ID ${messageId}, skipping duplicate call.`);
+        }
     } else if (!translationSuccess) {
         console.log("Skipping speech due to translation failure.");
     } else if (!isVoiceInput) {
         console.log("Skipping speech as input was text.");
     }
-
+    // --- End Text-to-Speech Logic ---
 
     setLoading(false);
     console.log(`Translate/Speak End - Process finished for user: ${sourceUser}, message ID: ${messageId}`);
@@ -208,8 +216,9 @@ export default function NicoleApp() {
           console.warn("Empty input received, ignoring.");
           return;
       }
+      // Call the combined function
       handleTranslateAndSpeak(text, user, isVoiceInput);
-  },[handleTranslateAndSpeak]);
+  },[handleTranslateAndSpeak]); // Dependency array includes the combined function
 
 
   const swapLanguagesAndGenders = () => {
@@ -357,9 +366,19 @@ export default function NicoleApp() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle>Welcome to Nicole!</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Use the microphone icons (<Mic className="inline-block h-4 w-4" />) below each user area to start speaking.
-                    Your voice will be translated in real-time. For best results, speak clearly and audibly.
+                 <AlertDialogDescription className="text-sm space-y-2">
+                    <p>
+                       You can click on the microphone icon (<Mic className="inline-block h-4 w-4 align-text-bottom"/>) below the user area to start speaking. Your voice will be instantly transcribed.
+                    </p>
+                     <p>
+                        For best results, it is recommended to speak clearly and in a quiet environment.
+                     </p>
+                    <p>
+                        Occasionally, minor errors may occur due to technical reasons, so it is a good idea to check the text during the chat.
+                    </p>
+                    <p className="italic text-muted-foreground text-xs">
+                       Please note that this feature is still under development and occasional glitches may occur. Your support is very valuable to us!
+                    </p>
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
