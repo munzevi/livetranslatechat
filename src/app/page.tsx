@@ -202,7 +202,7 @@ export default function NicoleApp() {
   }, [user1Lang, user2Lang, user1Gender, user2Gender, toast, isTTSSupported]);
 
 
-  const handleUserInput = useCallback((text: string, user: 'user1' | 'user2', isVoiceInput: boolean) => {
+ const handleUserInput = useCallback((text: string, user: 'user1' | 'user2', isVoiceInput: boolean) => {
       console.log(`User Input Received - User: ${user}, Text: "${text}", Voice Input: ${isVoiceInput}`);
        if (!text) {
           console.warn("Empty input received, ignoring.");
@@ -210,6 +210,7 @@ export default function NicoleApp() {
       }
       handleTranslateAndSpeak(text, user, isVoiceInput);
   },[handleTranslateAndSpeak]);
+
 
   const swapLanguagesAndGenders = () => {
     const tempLang = user1Lang;
@@ -246,7 +247,7 @@ export default function NicoleApp() {
   }, []);
 
   if (!clientSideRendered) {
-    return null;
+    return null; // Or a skeleton loader
   }
 
 
@@ -358,7 +359,7 @@ export default function NicoleApp() {
                 <AlertDialogTitle>Welcome to Nicole!</AlertDialogTitle>
                 <AlertDialogDescription>
                     Use the microphone icons (<Mic className="inline-block h-4 w-4" />) below each user area to start speaking.
-                    Your voice will be translated in real-time.
+                    Your voice will be translated in real-time. For best results, speak clearly and audibly.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
