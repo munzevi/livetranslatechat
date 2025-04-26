@@ -6,13 +6,22 @@ import { UserInputArea } from '@/components/lingualive/UserInputArea';
 import { UserSettingsSheet } from '@/components/lingualive/UserSettingsSheet';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { translateText, type TranslationRequest, type TranslationResult } from '@/services/translation';
 import type { Message } from '@/components/lingualive/TranslationBubble';
 import { languages, type LanguageCode, getLanguageName } from '@/lib/languages';
 import { ArrowRightLeft, Settings, User, UserRound, Keyboard, Mic } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { speakText, type Gender } from '@/lib/tts';
-import { NicoleLogo } from '@/components/lingualive/NicoleLogo'; // Import the new logo
+import { NicoleLogo } from '@/components/lingualive/NicoleLogo';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function NicoleApp() {
@@ -26,43 +35,38 @@ export default function NicoleApp() {
   const { toast } = useToast();
   const [isTTSSupported, setIsTTSSupported] = useState<boolean>(false);
   const lastSpokenMessageId = useRef<string | null>(null);
-  const isMobile = useIsMobile(); // Use the hook
-  const [showTextInput, setShowTextInput] = useState<boolean>(!isMobile); // Default text input based on device
-  const [clientSideRendered, setClientSideRendered] = useState(false); // Hydration fix state
-
-  // State for managing settings sheets
+  const isMobile = useIsMobile();
+  const [showTextInput, setShowTextInput] = useState<boolean>(!isMobile);
+  const [clientSideRendered, setClientSideRendered] = useState(false);
   const [isUser1SettingsOpen, setIsUser1SettingsOpen] = useState<boolean>(false);
   const [isUser2SettingsOpen, setIsUser2SettingsOpen] = useState<boolean>(false);
+  const [showInitialAlert, setShowInitialAlert] = useState<boolean>(false); // State for initial alert
 
-   // Fix for hydration mismatch with showTextInput logic
   useEffect(() => {
     setShowTextInput(!isMobile);
     setClientSideRendered(true);
+    // Show the initial alert dialog once the component mounts
+    setShowInitialAlert(true);
   }, [isMobile]);
 
 
   useEffect(() => {
-    // Check for TTS support after component mounts on client-side
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        // Function to check and set TTS support state
         const checkVoices = () => {
             const voices = window.speechSynthesis.getVoices();
             if (voices.length > 0) {
                 setIsTTSSupported(true);
-                // Once voices are loaded, we don't need the listener anymore
                 if (window.speechSynthesis) {
                    window.speechSynthesis.onvoiceschanged = null;
                 }
             } else {
-                // If voices are not immediately available, set a listener
                 const handleVoicesChanged = () => {
                     const updatedVoices = window.speechSynthesis.getVoices();
                     if (updatedVoices.length > 0) {
                         setIsTTSSupported(true);
                     } else {
-                        setIsTTSSupported(false); // Still no voices
+                        setIsTTSSupported(false);
                     }
-                    // Remove listener after it runs
                     if (window.speechSynthesis) {
                         window.speechSynthesis.onvoiceschanged = null;
                     }
@@ -73,29 +77,25 @@ export default function NicoleApp() {
             }
         };
 
-        // Check immediately in case voices are already loaded
         if (window.speechSynthesis.getVoices().length > 0) {
              checkVoices();
         } else {
-            // If not loaded, rely on the onvoiceschanged event (set inside checkVoices)
              if (window.speechSynthesis) {
                  window.speechSynthesis.onvoiceschanged = checkVoices;
              }
         }
 
     } else if (typeof window !== 'undefined') {
-        // Speech synthesis not supported
         setIsTTSSupported(false);
     }
 
-    // Cleanup function to cancel any ongoing speech and remove listeners
     return () => {
         if (typeof window !== 'undefined' && window.speechSynthesis) {
             window.speechSynthesis.cancel();
-            window.speechSynthesis.onvoiceschanged = null; // Remove listener on unmount
+            window.speechSynthesis.onvoiceschanged = null;
         }
     };
-}, []); // Empty dependency array ensures this runs only once on mount
+}, []);
 
 
  const handleTranslateAndSpeak = useCallback(async (text: string, sourceUser: 'user1' | 'user2', isVoiceInput: boolean) => {
@@ -114,11 +114,11 @@ export default function NicoleApp() {
     const setLoading = sourceUser === 'user1' ? setIsUser1Translating : setIsUser2Translating;
     setLoading(true);
 
-    const messageId = Date.now().toString(); // Unique ID for this message attempt
+    const messageId = Date.now().toString();
     const originalMessage: Message = {
       id: messageId,
       originalText: text,
-      translatedText: '...', // Placeholder for translation
+      translatedText: '...',
       sourceLanguage: sourceLanguage,
       targetLanguage: targetLanguage,
       user: sourceUser,
@@ -126,11 +126,10 @@ export default function NicoleApp() {
       isVoiceInput: isVoiceInput,
     };
     setConversation((prev) => [...prev, originalMessage]);
-    lastSpokenMessageId.current = null; // Reset last spoken ID for this new message cycle
+    lastSpokenMessageId.current = null;
 
 
-    // --- Step 1: Handle Translation (if needed) ---
-    let translationResultText = text; // Default to original text if no translation needed
+    let translationResultText = text;
     let translationSuccess = true;
 
     if (sourceLanguage !== targetLanguage) {
@@ -141,7 +140,7 @@ export default function NicoleApp() {
             console.log(`Translation result for ID ${messageId}:`, result);
 
             if (result.translatedText.startsWith('Error:') || result.translatedText.startsWith('Translation currently unavailable')) {
-                translationResultText = result.translatedText; // Keep error message
+                translationResultText = result.translatedText;
                 translationSuccess = false;
                 console.error("Translation Service Error:", result.translatedText);
                 toast({ variant: "destructive", title: "Translation Error", description: result.translatedText });
@@ -154,7 +153,6 @@ export default function NicoleApp() {
             console.error('Translation async processing failed:', error);
             toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred during translation." });
         } finally {
-             // Update conversation bubble with translation result (or error)
              setConversation((prev) =>
                 prev.map(msg =>
                 msg.id === messageId ? { ...msg, translatedText: translationResultText } : msg
@@ -163,7 +161,6 @@ export default function NicoleApp() {
         }
     } else {
         console.log("Translation skipped: Source and target languages are the same.");
-        // Update bubble immediately as no translation occurred
          setConversation((prev) =>
             prev.map(msg =>
             msg.id === messageId ? { ...msg, translatedText: text } : msg
@@ -171,21 +168,20 @@ export default function NicoleApp() {
         );
     }
 
-    // --- Step 2: Handle Speaking ---
     // Speak only if input was voice AND translation was successful (or not needed)
     if (isVoiceInput && translationSuccess) {
          if (isTTSSupported && lastSpokenMessageId.current !== messageId) {
-             lastSpokenMessageId.current = messageId; // Mark this message as being spoken
-             const textToSpeak = translationResultText; // Speak the (potentially translated) text
-             const languageToSpeakIn = targetLanguage; // Speak in the target language
-             const voiceGenderToUse = targetRecipientGender; // Use the voice gender of the recipient
+             lastSpokenMessageId.current = messageId;
+             const textToSpeak = translationResultText;
+             const languageToSpeakIn = targetLanguage;
+             const voiceGenderToUse = targetRecipientGender;
 
              console.log(`Attempting to speak for ID ${messageId}: "${textToSpeak}" in ${languageToSpeakIn} (${voiceGenderToUse} voice)`);
 
              speakText(textToSpeak, languageToSpeakIn, voiceGenderToUse, (errorMsg) => {
                  console.error(`TTS Error Callback for ID ${messageId}:`, errorMsg);
                  toast({ variant: "destructive", title: "Speech Error", description: errorMsg });
-                 lastSpokenMessageId.current = null; // Allow retrying speech if needed
+                 lastSpokenMessageId.current = null;
              });
          } else if (!isTTSSupported) {
              console.warn("TTS not supported, skipping speech.");
@@ -203,7 +199,7 @@ export default function NicoleApp() {
     setLoading(false);
     console.log(`Translate/Speak End - Process finished for user: ${sourceUser}, message ID: ${messageId}`);
 
-  }, [user1Lang, user2Lang, user1Gender, user2Gender, toast, isTTSSupported]); // Removed handleUserInput dependency
+  }, [user1Lang, user2Lang, user1Gender, user2Gender, toast, isTTSSupported]);
 
 
   const handleUserInput = useCallback((text: string, user: 'user1' | 'user2', isVoiceInput: boolean) => {
@@ -249,9 +245,8 @@ export default function NicoleApp() {
     setShowTextInput(prev => !prev);
   }, []);
 
-  // Render null or placeholder during SSR/hydration phase if clientSideRendered is false
   if (!clientSideRendered) {
-    return null; // Or a loading spinner, skeleton etc.
+    return null;
   }
 
 
@@ -260,9 +255,8 @@ export default function NicoleApp() {
        {/* Centered Header */}
        <header className="flex items-center justify-center mb-2 sm:mb-4 p-2 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <NicoleLogo /> {/* Use the new logo */}
-            {/* Apply Pacifico font using the CSS variable */}
-            <h1 className="text-2xl sm:text-3xl font-pacifico text-primary">Nicole</h1> {/* Use CSS variable */}
+            <NicoleLogo />
+            <h1 className="text-2xl sm:text-3xl font-pacifico text-primary">Nicole</h1>
           </div>
        </header>
 
@@ -320,7 +314,7 @@ export default function NicoleApp() {
                aria-label="Input area for User 1"
                className={`bg-card rounded-lg shadow flex-1`}
                showTextInput={showTextInput}
-               onToggleTextInput={isMobile ? toggleTextInputVisibility : undefined} // Pass toggle function only on mobile
+               onToggleTextInput={isMobile ? toggleTextInputVisibility : undefined}
             />
             <UserInputArea
                user="user2"
@@ -331,7 +325,7 @@ export default function NicoleApp() {
                aria-label="Input area for User 2"
                className={`bg-card rounded-lg shadow flex-1`}
                showTextInput={showTextInput}
-               onToggleTextInput={isMobile ? toggleTextInputVisibility : undefined} // Pass toggle function only on mobile
+               onToggleTextInput={isMobile ? toggleTextInputVisibility : undefined}
             />
        </div>
 
@@ -356,6 +350,23 @@ export default function NicoleApp() {
           onGenderChange={(gender) => handleGenderChange('user2', gender)}
           languages={languages}
        />
+
+        {/* Initial Instruction Alert */}
+        <AlertDialog open={showInitialAlert} onOpenChange={setShowInitialAlert}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Welcome to Nicole!</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Use the microphone icons (<Mic className="inline-block h-4 w-4" />) below each user area to start speaking.
+                    Your voice will be translated in real-time.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setShowInitialAlert(false)}>Got it!</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
     </div>
   );
 }
