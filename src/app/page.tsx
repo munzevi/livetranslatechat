@@ -366,18 +366,21 @@ export default function NicoleApp() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle>Welcome to Nicole!</AlertDialogTitle>
-                 <AlertDialogDescription className="text-sm space-y-2">
+                 <AlertDialogDescription className="text-sm space-y-3 text-left">
                     <p>
-                       You can click on the microphone icon (<Mic className="inline-block h-4 w-4 align-text-bottom"/>) below the user area to start speaking. Your voice will be instantly transcribed.
+                       To start speaking, you can click on the microphone icon <Mic className="inline-block h-4 w-4 align-text-bottom mx-1"/> below the user area.
                     </p>
                      <p>
-                        For best results, it is recommended to speak clearly and in a quiet environment.
-                     </p>
-                    <p>
-                        Occasionally, minor errors may occur due to technical reasons, so it is a good idea to check the text during the chat.
+                        In order for the app to work properly and transcribe your voice, you will need to <strong className='text-foreground'>grant permission to use the microphone</strong>.
                     </p>
-                    <p className="italic text-muted-foreground text-xs">
-                       Please note that this feature is still under development and occasional glitches may occur. Your support is very valuable to us!
+                    <p>
+                       For best results, it is important to <strong className='text-foreground'>speak clearly and audibly in a quiet environment</strong>.
+                    </p>
+                    <p>
+                        Technical errors can still occur, so it is a good idea to <strong className='text-foreground'>check your transcriptions</strong> during the chat.
+                    </p>
+                    <p className="italic text-muted-foreground pt-2">
+                       Please note that this feature is still under development and occasional glitches may occur.
                     </p>
                 </AlertDialogDescription>
                 </AlertDialogHeader>
