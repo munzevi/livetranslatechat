@@ -12,7 +12,7 @@ import { languages, type LanguageCode, getLanguageName } from '@/lib/languages';
 import { ArrowRightLeft, Settings, User, UserRound, Keyboard, Mic } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { speakText, type Gender } from '@/lib/tts';
-import { OvalMessagesLogo } from '@/components/lingualive/OvalMessagesLogo'; // Import the new logo
+import { CreativeLogo } from '@/components/lingualive/CreativeLogo'; // Import the new logo
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function NicoleApp() {
@@ -259,7 +259,7 @@ export default function NicoleApp() {
     <div className="flex flex-col h-screen bg-secondary p-2 sm:p-4 md:p-6 lg:p-8 overflow-hidden font-sans">
        <header className="flex items-center justify-between mb-2 sm:mb-4 p-2 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <OvalMessagesLogo /> {/* Use the new logo */}
+            <CreativeLogo /> {/* Use the new logo */}
             {/* Apply Pacifico font using the CSS variable */}
             <h1 className="text-2xl sm:text-3xl font-pacifico text-primary">Nicole</h1> {/* Use CSS variable */}
           </div>
