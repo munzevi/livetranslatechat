@@ -33,14 +33,22 @@ export function UserInputArea({
 }: UserInputAreaProps) {
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [recognitionSupported, setRecognitionSupported] = useState(false); // Default to false for SSR
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { toast } = useToast();
   const finalTranscriptRef = useRef(''); // Ref to store final transcript
   const isMobile = useIsMobile();
 
-  const isClient = typeof window !== 'undefined';
-  const SpeechRecognition = isClient ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
-  const recognitionSupported = !!SpeechRecognition;
+  // Check for SpeechRecognition support *after* mount
+  useEffect(() => {
+    const supported = !!(typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition));
+    setRecognitionSupported(supported);
+    // Log warning only on client if not supported, after check
+    if (typeof window !== 'undefined' && !supported) {
+        console.warn("Speech Recognition API not supported in this browser.");
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
 
   // Define stopListening using useCallback, referencing isListening
    const stopListening = useCallback(() => {
@@ -63,17 +71,18 @@ export function UserInputArea({
 
 
   useEffect(() => {
-    if (!isClient || !recognitionSupported || !SpeechRecognition) {
-      if (isClient && !recognitionSupported) {
-        console.warn("Speech Recognition API not supported in this browser.");
-      }
+    // Setup recognition only if supported and on the client
+    if (!recognitionSupported || typeof window === 'undefined') {
       return;
     }
 
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return; // Safety check
+
     if (!recognitionRef.current) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false; // Stop after first utterance
-      recognitionRef.current.interimResults = false; // We only want final results
+      recognitionRef.current = new SpeechRecognitionAPI();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
     }
 
     const recognition = recognitionRef.current;
@@ -82,8 +91,7 @@ export function UserInputArea({
     const handleResult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
       console.log("Voice recognized (final):", transcript);
-      finalTranscriptRef.current = transcript; // Store final transcript
-      // Note: We let the 'end' event handle sending and state reset
+      finalTranscriptRef.current = transcript;
     };
 
     const handleError = (event: SpeechRecognitionErrorEvent) => {
@@ -91,7 +99,7 @@ export function UserInputArea({
       let errorMessage = 'Speech recognition error occurred.';
       if (event.error === 'no-speech') {
         console.log('No speech detected.');
-        // Don't show toast for no-speech, just stop listening implicitly via onend
+        // No toast for no-speech
       } else if (event.error === 'audio-capture') {
         errorMessage = 'Microphone error. Please check permissions.';
       } else if (event.error === 'not-allowed') {
@@ -106,19 +114,16 @@ export function UserInputArea({
             description: errorMessage,
           });
       }
-       // 'onend' will be called after error, resetting state.
-       // If stopListening needs to be called explicitly here for some reason:
-       // stopListening();
     };
 
     const handleEnd = () => {
         console.log("Speech recognition ended.");
-        setIsListening(false); // Always set listening to false when recognition ends
+        setIsListening(false);
         const finalTranscript = finalTranscriptRef.current;
         if (finalTranscript) {
              console.log("Sending final transcript from onEnd:", finalTranscript);
-             onSend(finalTranscript, user, true); // Send with isVoiceInput = true
-             finalTranscriptRef.current = ''; // Clear the ref
+             onSend(finalTranscript, user, true);
+             finalTranscriptRef.current = '';
         } else {
             console.log("No final transcript captured before end.");
         }
@@ -133,11 +138,9 @@ export function UserInputArea({
     // Cleanup function
     return () => {
       if (recognitionRef.current) {
-         // Remove event listeners to prevent memory leaks
          recognitionRef.current.onresult = null;
          recognitionRef.current.onerror = null;
          recognitionRef.current.onend = null;
-         // If recognition is active during unmount, try to abort
          if (isListening) {
            try {
                recognitionRef.current.abort();
@@ -145,15 +148,17 @@ export function UserInputArea({
            } catch (e) {
                console.warn("Error aborting recognition on cleanup:", e);
            }
-           setIsListening(false); // Ensure state is reset
+           setIsListening(false);
          }
       }
     };
-  }, [language, toast, isClient, recognitionSupported, SpeechRecognition, onSend, user, stopListening, isListening]);
+    // Add recognitionSupported to dependencies
+  }, [language, toast, onSend, user, stopListening, isListening, recognitionSupported]);
 
 
   const startListening = useCallback(() => {
-    if (!recognitionSupported || !SpeechRecognition) {
+    // Check support state first
+    if (!recognitionSupported) {
       toast({ variant: "destructive", title: "Unsupported Feature", description: "Voice input is not supported by your browser." });
       return;
     }
@@ -164,28 +169,25 @@ export function UserInputArea({
     }
 
     if (!isListening && !isTranslating) {
-       finalTranscriptRef.current = ''; // Clear previous transcript
+       finalTranscriptRef.current = '';
       try {
         recognitionRef.current.lang = language;
         console.log(`Starting speech recognition for language: ${language}`);
         recognitionRef.current.start();
         setIsListening(true);
-        setInputText(''); // Clear text input when starting voice
+        setInputText('');
       } catch (error) {
         console.error("Failed to start speech recognition:", error);
         const domError = error as DOMException;
         let userMessage = "Could not start voice input. Check microphone and permissions.";
         if (domError.name === 'InvalidStateError') {
            console.warn("Attempted to start speech recognition while it might already be running.");
-           // Don't toggle state here, let 'onend' or 'onerror' handle it.
-           // If you're sure it's already listening, maybe call stopListening first?
-           // Or just inform the user.
            userMessage = "Voice input might already be active or processing.";
         } else if (domError.name === 'NotAllowedError' || domError.name === 'SecurityError') {
            userMessage = "Microphone access was denied. Please allow access in browser settings.";
-           setIsListening(false); // Ensure state is correct
+           setIsListening(false);
         } else {
-           setIsListening(false); // Reset state on other errors
+           setIsListening(false);
         }
         toast({ variant: "destructive", title: "Voice Input Error", description: userMessage });
       }
@@ -193,15 +195,16 @@ export function UserInputArea({
       toast({ title: "Busy", description: "Please wait for the current translation to finish." });
     } else if (isListening) {
         console.log("Already listening, calling stopListening.");
-        stopListening(); // If already listening, stop it
+        stopListening();
     }
-  }, [isListening, isTranslating, toast, recognitionSupported, SpeechRecognition, language, stopListening]);
+    // Add recognitionSupported dependency
+  }, [isListening, isTranslating, toast, recognitionSupported, language, stopListening]);
 
   const handleSendText = useCallback(() => {
     const textToSend = inputText.trim();
     if (textToSend && !isTranslating && !isListening) {
       console.log("Sending text:", textToSend);
-      onSend(textToSend, user, false); // Send with isVoiceInput = false
+      onSend(textToSend, user, false);
       setInputText('');
     }
   }, [inputText, onSend, user, isTranslating, isListening]);
@@ -214,6 +217,7 @@ export function UserInputArea({
   };
 
   const toggleListening = () => {
+    // Check support state first
     if (!recognitionSupported) {
       toast({ variant: "destructive", title: "Unsupported Feature", description: "Voice input is not supported by your browser." });
       return;
@@ -227,33 +231,38 @@ export function UserInputArea({
     }
   };
 
+  // Determine helper text content *after* mount based on recognitionSupported state
+  const micHelperText = isListening
+    ? "Listening..."
+    : recognitionSupported
+    ? "Tap the mic to speak"
+    : "Voice input not supported";
 
   return (
     <div className={cn(
         "flex flex-col items-center gap-2 p-2 sm:p-3 border rounded-lg bg-card shadow-sm w-full relative",
-        // Adjust overall layout based on text input visibility
         className
     )}>
 
         {/* Mic Button - Always visible, larger */}
         <Button
-            variant={isListening ? "destructive" : "ghost"} // Change variant when listening
-            size="lg" // Larger button
+            variant={isListening ? "destructive" : "ghost"}
+            size="lg"
             onClick={toggleListening}
             disabled={isTranslating || !recognitionSupported}
             className={cn(
-                "p-3 rounded-full text-primary hover:bg-primary/10 aspect-square h-16 w-16 sm:h-20 sm:w-20", // Larger, rounded, aspect ratio
-                isListening && "bg-red-500 text-white hover:bg-red-600 animate-pulse", // Prominent listening state
+                "p-3 rounded-full text-primary hover:bg-primary/10 aspect-square h-16 w-16 sm:h-20 sm:w-20",
+                isListening && "bg-red-500 text-white hover:bg-red-600 animate-pulse",
                 (isTranslating || !recognitionSupported) && "opacity-50 cursor-not-allowed"
             )}
             aria-label={isListening ? "Stop listening" : "Start voice input"}
         >
-            <Mic className="w-8 h-8 sm:w-10 sm:h-10" /> {/* Larger Icon */}
+            <Mic className="w-8 h-8 sm:w-10 sm:h-10" />
         </Button>
 
          {/* Helper Text for Voice Input */}
          <p className="text-xs text-muted-foreground text-center -mt-1 mb-1 px-2">
-            {isListening ? "Listening..." : recognitionSupported ? "Tap the mic to speak" : "Voice input not supported"}
+            {micHelperText}
          </p>
 
          {/* Mobile: Toggle Text Input Button */}
@@ -262,7 +271,7 @@ export function UserInputArea({
                     variant="outline"
                     size="sm"
                     onClick={onToggleTextInput}
-                    className="shadow text-xs h-7 px-2 mb-2" // Smaller button, adjusted margin
+                    className="shadow text-xs h-7 px-2 mb-2"
                 >
                     {showTextInput ? <Mic className="mr-1 h-3 w-3" /> : <Keyboard className="mr-1 h-3 w-3" />}
                     {showTextInput ? 'Use Voice Only' : 'Type Message'}
@@ -277,8 +286,8 @@ export function UserInputArea({
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder || 'Or type here...'}
-                    className="flex-1 resize-none bg-input text-sm p-2 min-h-[40px] sm:min-h-[50px]" // Adjusted styling, ensure min-height
-                    rows={2} // Adjust rows as needed
+                    className="flex-1 resize-none bg-input text-sm p-2 min-h-[40px] sm:min-h-[50px]"
+                    rows={2}
                     disabled={isTranslating || isListening}
                     aria-label={placeholder || 'Type your message'}
                     {...ariaProps}
@@ -290,7 +299,7 @@ export function UserInputArea({
                         disabled={!inputText.trim() || isTranslating || isListening}
                         size="sm"
                         aria-label="Send typed message"
-                        className="px-3 py-1 self-end mt-1 text-xs h-7" // Align to the right, add margin, smaller button
+                        className="px-3 py-1 self-end mt-1 text-xs h-7"
                     >
                         {isTranslating && inputText ? (
                         <Bot className="w-3 h-3 animate-spin mr-1" />
@@ -303,8 +312,8 @@ export function UserInputArea({
             </div>
          )}
 
-        {/* Optional: Indication for unsupported browser */}
-        {!recognitionSupported && isClient && !showTextInput && ( // Only show if voice-only and not supported
+        {/* Optional: Indication for unsupported browser - Show based on state after mount */}
+        {typeof window !== 'undefined' && !recognitionSupported && !showTextInput && (
             <div className="text-destructive text-xs gap-1 flex items-center justify-center mt-1">
                <AlertCircle className="w-3 h-3" />
                Voice not supported
