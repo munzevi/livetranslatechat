@@ -288,13 +288,6 @@ export function UserInputArea({
             <Mic className="w-12 h-12 sm:w-16 sm:h-16" />
         </Button>
 
-         {/* Helper Text for Voice Input - REMOVED */}
-         {/*
-         <p className="text-xs text-muted-foreground text-center -mt-1 mb-1 px-2">
-            {micHelperText}
-         </p>
-         */}
-
          {/* Mobile: Toggle Text Input Button */}
          {isMobile && onToggleTextInput && (
                 <Button
@@ -305,7 +298,7 @@ export function UserInputArea({
                 >
                     {showTextInput ? <Mic className="mr-1 h-3 w-3" /> : <Keyboard className="mr-1 h-3 w-3" />}
                     {/* Changed text here */}
-                    {showTextInput ? 'Use Voice Only' : 'Tap to write text messages'}
+                    {showTextInput ? 'Use Voice Only' : 'Tap to write'}
                 </Button>
          )}
 
