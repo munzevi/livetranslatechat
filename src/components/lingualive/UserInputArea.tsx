@@ -51,7 +51,6 @@ export function UserInputArea({
     }
   }, []); // Empty dependency array ensures this runs only once on mount
 
-
   // Define stopListening using useCallback, referencing isListening
    const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
@@ -265,13 +264,6 @@ export function UserInputArea({
     );
   }
 
-  // Determine helper text content *after* mount based on recognitionSupported state
-  const micHelperText = isListening
-    ? "Listening..."
-    : recognitionSupported
-    ? "Tap the mic to speak"
-    : "Voice input not supported";
-
 
   return (
     <div className={cn(
@@ -286,20 +278,22 @@ export function UserInputArea({
             onClick={toggleListening}
             disabled={isTranslating || !recognitionSupported}
             className={cn(
-                "p-0 rounded-full text-primary hover:bg-primary/10 aspect-square h-20 w-20 sm:h-24 sm:w-24 flex items-center justify-center", // Ensure icon centering
+                "p-0 rounded-full text-primary hover:bg-primary/10 aspect-square h-20 w-20 sm:h-24 sm:w-24 flex items-center justify-center mb-2", // Ensure icon centering, add bottom margin
                 isListening && "bg-red-500 text-white hover:bg-red-600 animate-pulse",
                 (isTranslating || !recognitionSupported) && "opacity-50 cursor-not-allowed"
             )}
             aria-label={isListening ? "Stop listening" : "Start voice input"}
         >
              {/* Adjusted icon size to better fit the button */}
-            <Mic className="w-10 h-10 sm:w-12 sm:h-12" />
+            <Mic className="w-12 h-12 sm:w-16 sm:h-16" />
         </Button>
 
-         {/* Helper Text for Voice Input */}
+         {/* Helper Text for Voice Input - REMOVED */}
+         {/*
          <p className="text-xs text-muted-foreground text-center -mt-1 mb-1 px-2">
             {micHelperText}
          </p>
+         */}
 
          {/* Mobile: Toggle Text Input Button */}
          {isMobile && onToggleTextInput && (
