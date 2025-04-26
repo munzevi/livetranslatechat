@@ -26,12 +26,13 @@ export function ConversationView({ conversation }: ConversationViewProps) {
   return (
     // Use h-full w-full to fill the parent Card
     <ScrollArea className="h-full w-full">
-       {/* Add padding here for inner content spacing */}
-       <div className="h-full space-y-4 p-4" ref={viewportRef}>
+       {/* Add flex layout and items-center to center bubbles, keep padding and spacing */}
+       <div className="h-full flex flex-col items-center space-y-4 p-4" ref={viewportRef}>
             {conversation.length === 0 && (
             <p className="text-center text-muted-foreground pt-10">Start the conversation!</p>
             )}
             {conversation.map((msg) => (
+                // Ensure TranslationBubble doesn't override centering with self-align
                 <TranslationBubble key={`${msg.id}-${msg.timestamp.getTime()}`} message={msg} />
             ))}
        </div>

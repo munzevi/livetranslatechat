@@ -16,6 +16,7 @@ export interface Message {
   targetLanguage: string;
   user: 'user1' | 'user2';
   timestamp: Date;
+  isVoiceInput?: boolean; // Optional flag
 }
 
 interface TranslationBubbleProps {
@@ -33,8 +34,9 @@ export function TranslationBubble({ message }: TranslationBubbleProps) {
 
   return (
     <div className={cn(
-        'flex flex-col w-full max-w-[85%] md:max-w-[70%]', // Slightly increased max-width for better text flow
-        isUser1 ? 'items-start self-start' : 'items-end self-end'
+        'flex flex-col w-full max-w-[85%] md:max-w-[70%]', // Maintain max-width
+        // Remove self-start/self-end to allow parent centering
+        isUser1 ? 'items-start' : 'items-end' // Align internal items based on user
     )}>
         {/* User Info Header */}
         <span className="text-xs text-muted-foreground mb-1 px-1 flex items-center">
