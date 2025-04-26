@@ -12,7 +12,7 @@ import { languages, type LanguageCode, getLanguageName } from '@/lib/languages';
 import { ArrowRightLeft, Settings, User, UserRound, Keyboard, Mic } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { speakText, type Gender } from '@/lib/tts';
-import { CreativeLogo } from '@/components/lingualive/CreativeLogo'; // Import the new logo
+import { NicoleLogo } from '@/components/lingualive/NicoleLogo'; // Import the new logo
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function NicoleApp() {
@@ -203,7 +203,7 @@ export default function NicoleApp() {
     setLoading(false);
     console.log(`Translate/Speak End - Process finished for user: ${sourceUser}, message ID: ${messageId}`);
 
-  }, [user1Lang, user2Lang, user1Gender, user2Gender, toast, isTTSSupported]);
+  }, [user1Lang, user2Lang, user1Gender, user2Gender, toast, isTTSSupported]); // Removed handleUserInput dependency
 
 
   const handleUserInput = useCallback((text: string, user: 'user1' | 'user2', isVoiceInput: boolean) => {
@@ -257,9 +257,10 @@ export default function NicoleApp() {
 
   return (
     <div className="flex flex-col h-screen bg-secondary p-2 sm:p-4 md:p-6 lg:p-8 overflow-hidden font-sans">
-       <header className="flex items-center justify-between mb-2 sm:mb-4 p-2 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <CreativeLogo /> {/* Use the new logo */}
+       {/* Centered Header */}
+       <header className="flex items-center justify-center mb-2 sm:mb-4 p-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <NicoleLogo /> {/* Use the new logo */}
             {/* Apply Pacifico font using the CSS variable */}
             <h1 className="text-2xl sm:text-3xl font-pacifico text-primary">Nicole</h1> {/* Use CSS variable */}
           </div>
