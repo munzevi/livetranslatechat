@@ -163,9 +163,7 @@ export default function LinguaLiveApp() {
 
     // --- Step 2: Handle Speaking ---
     // Speak only if input was voice AND translation was successful (or not needed)
-     // *** Updated logic: Speak if translation was successful (or not needed), regardless of input type for now
-     // *** If you ONLY want voice input to trigger speech, revert to: if (isVoiceInput && translationSuccess)
-    if (translationSuccess) {
+    if (isVoiceInput && translationSuccess) {
          if (isTTSSupported && lastSpokenMessageId.current !== messageId) {
              lastSpokenMessageId.current = messageId; // Mark this message as being spoken
              const textToSpeak = translationResultText; // Speak the (potentially translated) text
@@ -187,6 +185,8 @@ export default function LinguaLiveApp() {
          }
     } else if (!translationSuccess) {
         console.log("Skipping speech due to translation failure.");
+    } else if (!isVoiceInput) {
+        console.log("Skipping speech as input was text.");
     }
 
 
@@ -306,8 +306,8 @@ export default function LinguaLiveApp() {
             </div>
         )}
 
-      {/* Input Areas Container */}
-       <div className={`flex flex-col md:flex-row gap-2 sm:gap-4 mt-2 sm:mt-4 flex-shrink-0 ${!showTextInput && 'md:items-center md:justify-center'}`}>
+      {/* Input Areas Container - Always use flex-row */}
+       <div className={`flex flex-row gap-2 sm:gap-4 mt-2 sm:mt-4 flex-shrink-0`}>
            <UserInputArea
                user="user1"
                language={user1Lang}
@@ -315,7 +315,7 @@ export default function LinguaLiveApp() {
                isTranslating={isUser1Translating}
                placeholder={`Speak or type in ${getLanguageName(user1Lang)}...`}
                aria-label="Input area for User 1"
-               className={`bg-card rounded-lg shadow flex-1 ${!showTextInput && 'input-area-collapsed'}`} // Add class when collapsed
+               className={`bg-card rounded-lg shadow flex-1`} // Remove input-area-collapsed class
                showTextInput={showTextInput} // Pass state to component
             />
             <UserInputArea
@@ -325,7 +325,7 @@ export default function LinguaLiveApp() {
                isTranslating={isUser2Translating}
                placeholder={`Speak or type in ${getLanguageName(user2Lang)}...`}
                aria-label="Input area for User 2"
-               className={`bg-card rounded-lg shadow flex-1 ${!showTextInput && 'input-area-collapsed'}`} // Add class when collapsed
+               className={`bg-card rounded-lg shadow flex-1`} // Remove input-area-collapsed class
                showTextInput={showTextInput} // Pass state to component
             />
        </div>
