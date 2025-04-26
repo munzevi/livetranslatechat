@@ -3,28 +3,28 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* More modern font stack */
 }
 
 @layer base {
   :root {
     --background: 0 0% 100%; /* White */
     --foreground: 0 0% 3.9%; /* Default Dark Text */
-    --card: 240 10% 98%; /* Lighter Gray for cards */
+    --card: 0 0% 100%; /* Card same as background for seamless look */
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
     --primary: 180 100% 25.1%; /* Teal */
     --primary-foreground: 0 0% 100%; /* White text on Teal */
-    --secondary: 0 0% 94.1%; /* Light Gray #F0F0F0 */
+    --secondary: 0 0% 96.1%; /* Slightly darker gray for secondary elements if needed */
     --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 180 100% 25.1%; /* Teal */
-    --accent-foreground: 0 0% 100%; /* White text on Teal */
+    --muted: 0 0% 94.1%; /* Muted gray #F0F0F0 */
+    --muted-foreground: 0 0% 45.1%; /* Muted text */
+    --accent: 180 100% 94%; /* Very Light Teal for hover/accent */
+    --accent-foreground: 180 100% 20%; /* Darker Teal text on accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
+    --border: 0 0% 89.8%; /* Default border color */
     --input: 0 0% 94.1%; /* Light Gray #F0F0F0 for inputs */
     --ring: 180 100% 25.1%; /* Teal for focus rings */
     --chart-1: 180 100% 25.1%; /* Teal */
@@ -32,7 +32,8 @@ body {
     --chart-3: 180 50% 55%;
     --chart-4: 180 30% 70%;
     --chart-5: 180 10% 85%;
-    --radius: 0.5rem;
+    --radius: 0.5rem; /* Keep existing radius */
+    /* Sidebar variables remain, but might not be used if sidebar isn't present */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -43,8 +44,8 @@ body {
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
-  /* Dark mode remains largely default, adjust if needed later */
   .dark {
+    /* Keep dark mode relatively default, adjust primary/accent if needed */
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
@@ -57,14 +58,14 @@ body {
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 0 0% 62.9%;
-    --accent: 180 100% 35%; /* Darker Teal for dark mode */
-    --accent-foreground: 0 0% 100%;
+    --accent: 180 100% 15%; /* Darker Accent */
+    --accent-foreground: 0 0% 95%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 180 100% 35%; /* Darker Teal for dark mode */
-     --chart-1: 180 100% 35%; /* Darker Teal */
+    --ring: 180 100% 35%;
+    --chart-1: 180 100% 35%;
     --chart-2: 180 70% 50%;
     --chart-3: 180 50% 65%;
     --chart-4: 180 30% 80%;
@@ -85,6 +86,28 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-secondary text-foreground; /* Use secondary light gray as main background */
+    @apply bg-background text-foreground; /* Use white background */
+    /* Improve text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  /* Ensure scrollbars look consistent */
+   ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--secondary));
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.5);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.7);
   }
 }
