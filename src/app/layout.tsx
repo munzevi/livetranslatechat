@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'LinguaLive',
+  title: 'LinguaLink', // Updated title
   description: 'Real-time voice translation',
 };
 
