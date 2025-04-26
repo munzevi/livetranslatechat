@@ -10,7 +10,7 @@ export function NicoleLogo({ className, ...props }: NicoleLogoProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 100 30" // Adjust viewBox for aspect ratio
+      viewBox="0 0 100 30" // Adjusted viewBox for a wider aspect ratio
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -19,22 +19,21 @@ export function NicoleLogo({ className, ...props }: NicoleLogoProps) {
       className={cn("w-12 h-8 text-primary", className)} // Adjust size as needed
       {...props}
     >
-      {/* Sound Wave */}
+      {/* Sound Wave - adjusted path for smoother peaks and troughs */}
       <path
-        d="M10 15 Q 15 5, 20 15 T 30 15 Q 35 25, 40 15 T 50 15 Q 55 5, 60 15 T 70 15"
-        stroke="hsl(var(--primary))" // Use primary color for the wave
+        d="M10 15 C 15 5, 20 5, 25 15 S 35 25, 40 15 S 50 5, 55 15 S 65 25, 70 15"
+        stroke="hsl(var(--primary) / 0.7)" // Slightly lighter primary for the wave
         strokeWidth="2.5"
         fill="none"
       />
-      {/* Microphone Icon */}
+      {/* Microphone Icon - adjusted to match the image */}
       {/* Base */}
-      <line x1="75" y1="25" x2="85" y2="25" strokeWidth="2" stroke="hsl(var(--primary) / 0.8)" />
+      <line x1="83" y1="25" x2="91" y2="25" strokeWidth="2" stroke="hsl(var(--primary))" />
       {/* Stand */}
-      <line x1="80" y1="25" x2="80" y2="19" strokeWidth="2" stroke="hsl(var(--primary) / 0.8)" />
-      {/* Head */}
-      <rect x="76" y="10" width="8" height="12" rx="4" fill="hsl(var(--primary) / 0.8)" stroke="none" />
-      {/* Top arc */}
-       <path d="M76 14 A 4 4 0 0 1 84 14" fill="hsl(var(--primary) / 0.8)" stroke="none"/>
+      <line x1="87" y1="25" x2="87" y2="19" strokeWidth="2" stroke="hsl(var(--primary))" />
+      {/* Head - Rounded rectangle */}
+      <rect x="83" y="10" width="8" height="10" rx="4" ry="4" fill="hsl(var(--primary))" stroke="none" />
+       {/* Top semicircle part of the head is achieved via rx/ry on rect */}
 
     </svg>
   );
