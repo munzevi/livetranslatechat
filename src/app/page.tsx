@@ -14,7 +14,16 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Import AlertDialog components
+    AlertDialogCancel, // Import Cancel for the language settings part
+} from "@/components/ui/alert-dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"; // Import Select components
+import { Label } from '@/components/ui/label'; // Import Label
 import { translateText, type TranslationRequest, type TranslationResult } from '@/services/translation';
 import type { Message } from '@/components/lingualive/TranslationBubble';
 import { languages, type LanguageCode, getLanguageName } from '@/lib/languages';
@@ -23,6 +32,13 @@ import { useToast } from '@/hooks/use-toast';
 import { speakText, type Gender } from '@/lib/tts';
 import { NicoleLogo } from '@/components/lingualive/NicoleLogo';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+// Define available app languages (can be expanded)
+const appLanguages = [
+    { code: 'en', name: 'English' },
+    { code: 'tr', name: 'Türkçe' },
+    // Add other supported app languages here
+];
 
 export default function NicoleApp() {
   const [user1Lang, setUser1Lang] = useState<LanguageCode>('en');
@@ -40,13 +56,18 @@ export default function NicoleApp() {
   const [clientSideRendered, setClientSideRendered] = useState(false);
   const [isUser1SettingsOpen, setIsUser1SettingsOpen] = useState<boolean>(false);
   const [isUser2SettingsOpen, setIsUser2SettingsOpen] = useState<boolean>(false);
-  const [showInitialAlert, setShowInitialAlert] = useState<boolean>(false); // State for initial alert
+  const [showInitialAlert, setShowInitialAlert] = useState<boolean>(false);
+  const [showLanguageSettings, setShowLanguageSettings] = useState<boolean>(false); // State for language settings in alert
+  const [appLanguage, setAppLanguage] = useState<string>('en'); // State for app language selection
 
   useEffect(() => {
     setShowTextInput(!isMobile);
     setClientSideRendered(true);
     // Show the initial alert dialog once the component mounts
-    setShowInitialAlert(true);
+    // Only show if not previously dismissed (e.g., using localStorage)
+     if (!localStorage.getItem('nicoleInitialAlertDismissed')) {
+       setShowInitialAlert(true);
+     }
   }, [isMobile]);
 
 
@@ -184,9 +205,6 @@ export default function NicoleApp() {
                 console.error(`TTS Error Callback for ID ${messageId}:`, errorMsg);
                 toast({ variant: "destructive", title: "Speech Error", description: errorMsg });
                 // Reset last spoken only if this specific utterance failed?
-                // If we reset here unconditionally, a subsequent success for the same ID might be blocked.
-                // Maybe only reset if the error is critical like 'network'?
-                // For now, let's keep it simple: reset if there's an error.
                 if (lastSpokenMessageId.current === messageId) {
                      lastSpokenMessageId.current = null;
                 }
@@ -254,6 +272,15 @@ export default function NicoleApp() {
   const toggleTextInputVisibility = useCallback(() => {
     setShowTextInput(prev => !prev);
   }, []);
+
+   const handleDismissInitialAlert = () => {
+       setShowInitialAlert(false);
+       setShowLanguageSettings(false); // Close language settings if open
+       // Optionally, remember dismissal
+       if (typeof window !== 'undefined') {
+         localStorage.setItem('nicoleInitialAlertDismissed', 'true');
+       }
+     };
 
   if (!clientSideRendered) {
     return null; // Or a skeleton loader
@@ -364,32 +391,72 @@ export default function NicoleApp() {
         {/* Initial Instruction Alert */}
         <AlertDialog open={showInitialAlert} onOpenChange={setShowInitialAlert}>
             <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Welcome to Nicole!</AlertDialogTitle>
-                 <AlertDialogDescription className="text-sm space-y-3 text-left">
-                    <p>
-                       To start speaking, you can click on the microphone icon <Mic className="inline-block h-4 w-4 align-text-bottom mx-1"/> below the user area.
-                    </p>
-                     <p>
-                        In order for the app to work properly and transcribe your voice, you will need to <strong className='text-foreground'>grant permission to use the microphone</strong>.
-                    </p>
-                    <p>
-                       For best results, it is important to <strong className='text-foreground'>speak clearly and audibly in a quiet environment</strong>.
-                    </p>
-                    <p>
-                        Technical errors can still occur, so it is a good idea to <strong className='text-foreground'>check your transcriptions</strong> during the chat.
-                    </p>
-                    <p className="italic text-muted-foreground pt-2">
-                       Please note that this feature is still under development and occasional glitches may occur.
-                    </p>
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogAction onClick={() => setShowInitialAlert(false)}>Got it!</AlertDialogAction>
-                </AlertDialogFooter>
+                 {!showLanguageSettings ? (
+                     <>
+                        <AlertDialogHeader>
+                            <div className="flex justify-between items-center">
+                                <AlertDialogTitle>Welcome to Nicole!</AlertDialogTitle>
+                                <Button variant="ghost" size="icon" onClick={() => setShowLanguageSettings(true)} className="h-6 w-6">
+                                    <Settings className="h-4 w-4" />
+                                    <span className="sr-only">App Language Settings</span>
+                                </Button>
+                            </div>
+                            <AlertDialogDescription className="text-sm space-y-3 text-left pt-2">
+                                <p>
+                                To start speaking, you can click on the microphone icon <Mic className="inline-block h-4 w-4 align-text-bottom mx-1"/> below the user area.
+                                </p>
+                                <p>
+                                    In order for the app to work properly and transcribe your voice, you will need to <strong className='text-foreground'>grant permission to use the microphone</strong>.
+                                </p>
+                                <p>
+                                For best results, it is important to <strong className='text-foreground'>speak clearly and audibly in a quiet environment</strong>.
+                                </p>
+                                <p>
+                                    Technical errors can still occur, so it is a good idea to <strong className='text-foreground'>check your transcriptions</strong> during the chat.
+                                </p>
+                                <p className="italic text-muted-foreground pt-2">
+                                Please note that this feature is still under development and occasional glitches may occur.
+                                </p>
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogAction onClick={handleDismissInitialAlert}>Got it!</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </>
+                 ) : (
+                     <>
+                         <AlertDialogHeader>
+                             <AlertDialogTitle>App Language Settings</AlertDialogTitle>
+                             <AlertDialogDescription>
+                                 Choose the display language for the application interface.
+                             </AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <div className="py-4">
+                            <Label htmlFor="app-language-select" className="mb-2 block">Select Language</Label>
+                             <Select value={appLanguage} onValueChange={setAppLanguage}>
+                                 <SelectTrigger id="app-language-select">
+                                     <SelectValue placeholder="Select app language" />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                     {appLanguages.map((lang) => (
+                                         <SelectItem key={lang.code} value={lang.code}>
+                                             {lang.name}
+                                         </SelectItem>
+                                     ))}
+                                 </SelectContent>
+                             </Select>
+                         </div>
+                         <AlertDialogFooter>
+                             <AlertDialogCancel onClick={() => setShowLanguageSettings(false)}>Back</AlertDialogCancel>
+                             <AlertDialogAction onClick={handleDismissInitialAlert}>Save & Close</AlertDialogAction>
+                         </AlertDialogFooter>
+                     </>
+                 )}
             </AlertDialogContent>
         </AlertDialog>
 
     </div>
   );
 }
+
+    
